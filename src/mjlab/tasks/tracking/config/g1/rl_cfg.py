@@ -44,6 +44,7 @@ def unitree_g1_teleoperation_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
   """Create RL runner configuration for Unitree G1 tracking task."""
   return RslRlOnPolicyRunnerCfg(
     policy=RslRlPpoActorCriticCfg(
+      class_name="rsl_rl.modules.MjlabActorCritic",
       init_noise_std=1.0,
       actor_obs_normalization=True,
       critic_obs_normalization=True,
