@@ -520,6 +520,14 @@ document.write(`
 <span class="sd">  When True (default), reward values are scaled by step_dt to normalize cumulative</span>
 <span class="sd">  episodic rewards across different simulation frequencies. Set to False for</span>
 <span class="sd">  algorithms that expect unscaled reward signals (e.g., HER, static reward scaling).</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="n">use_delta_action</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="w">  </span><span class="sd">&quot;&quot;&quot;Whether to use delta action mode for joint position control.</span>
+
+<span class="sd">  When True, network actions are treated as delta actions and added to command_joint_pos</span>
+<span class="sd">  before being processed. This is useful for tracking tasks where the policy outputs</span>
+<span class="sd">  relative changes to the reference motion. Defaults to False (absolute actions).</span>
 <span class="sd">  &quot;&quot;&quot;</span></div>
 
 
@@ -725,7 +733,19 @@ document.write(`
 <div class="viewcode-block" id="ManagerBasedRlEnv.step">
 <a class="viewcode-back" href="../../../source/api/envs.html#mjlab.envs.ManagerBasedRlEnv.step">[docs]</a>
   <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">types</span><span class="o">.</span><span class="n">VecEnvStepReturn</span><span class="p">:</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">action_manager</span><span class="o">.</span><span class="n">process_action</span><span class="p">(</span><span class="n">action</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">))</span>
+    <span class="n">action</span> <span class="o">=</span> <span class="n">action</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">use_delta_action</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">command_manager</span><span class="p">,</span> <span class="n">CommandManager</span><span class="p">):</span>
+      <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Get current step command_joint_pos from &quot;motion&quot; command (default for tracking tasks)</span>
+        <span class="c1"># command_current_joint_pos = self.command_manager.get_command_joint_pos_current(&quot;motion&quot;)  # 到 compute_obs 的时候 current joint_pos command 是下一帧了</span>
+        <span class="n">command_current_joint_pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">obs_buf</span><span class="p">[</span><span class="s1">&#39;policy&#39;</span><span class="p">][:,</span> <span class="mi">5</span><span class="o">*</span><span class="mi">29</span><span class="p">:</span><span class="mi">6</span><span class="o">*</span><span class="mi">29</span><span class="p">]</span>  <span class="c1"># [history_steps * joint_num, history_steps+1 * joint_num]</span>
+        <span class="c1"># [NOTE] * 0.25 to accelerate the exploring process, as the output is the delta action on command. </span>
+        <span class="n">action</span> <span class="o">=</span> <span class="n">action</span> <span class="o">*</span> <span class="mf">0.25</span> <span class="o">+</span> <span class="n">command_current_joint_pos</span>
+      
+      <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="k">pass</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">action_manager</span><span class="o">.</span><span class="n">process_action</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
 
     <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">decimation</span><span class="p">):</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">_sim_step_counter</span> <span class="o">+=</span> <span class="mi">1</span>
