@@ -145,7 +145,13 @@ class BaseAction(ActionTerm):
   def process_actions(self, actions: torch.Tensor):
     """Process raw actions by applying scale and offset."""
     self._raw_actions[:] = actions
-    self._processed_actions = self._raw_actions * self._scale + self._offset
+    # Use scale=1 if delta action mode is enabled
+    if self._env.cfg.use_delta_action:
+      action_scale = 1.0 if isinstance(self._scale, (float, int)) else torch.ones_like(self._scale)
+      self._processed_actions = self._raw_actions * action_scale 
+    else:
+      action_scale = self._scale
+      self._processed_actions = self._raw_actions * action_scale + self._offset
 
   def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
     """Reset raw actions to zero for specified environments."""

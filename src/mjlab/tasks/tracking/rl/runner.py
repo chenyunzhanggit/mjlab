@@ -7,6 +7,7 @@ from mjlab.rl import RslRlVecEnvWrapper
 from mjlab.rl.runner import MjlabOnPolicyRunner
 from mjlab.tasks.tracking.rl.exporter import (
   attach_onnx_metadata,
+  export_policy_as_onnx,
   export_motion_policy_as_onnx,
 )
 
@@ -35,7 +36,7 @@ class MotionTrackingOnPolicyRunner(MjlabOnPolicyRunner):
       normalizer = self.alg.policy.actor_obs_normalizer
     else:
       normalizer = None
-    export_motion_policy_as_onnx(
+    export_policy_as_onnx(
       self.env.unwrapped,
       self.alg.policy,
       normalizer=normalizer,

@@ -8,7 +8,7 @@ from mjlab.rl.exporter_utils import (
   attach_metadata_to_onnx,
   get_base_metadata,
 )
-from mjlab.tasks.tracking.mdp import MotionCommand
+from mjlab.tasks.tracking.mdp import MotionCommand, MultiMotionCommand
 from mjlab.utils.lab_api.rl.exporter import _OnnxPolicyExporter
 
 
@@ -99,7 +99,7 @@ def attach_onnx_metadata(
 
   # Add tracking-specific metadata.
   motion_term = env.command_manager.get_term("motion")
-  assert isinstance(motion_term, MotionCommand)
+  assert isinstance(motion_term, (MotionCommand, MultiMotionCommand))
   motion_term_cfg = motion_term.cfg
   metadata.update(
     {
@@ -109,3 +109,18 @@ def attach_onnx_metadata(
   )
 
   attach_metadata_to_onnx(onnx_path, metadata)
+
+
+def export_policy_as_onnx(
+  env: ManagerBasedRlEnv,
+  actor_critic: object,
+  path: str,
+  normalizer: object | None = None,
+  filename="policy.onnx",
+  verbose=False,
+):
+  if not os.path.exists(path):
+    os.makedirs(path, exist_ok=True)
+  policy_exporter = _OnnxPolicyExporter(actor_critic, normalizer, verbose)
+  policy_exporter.export(path, filename)
+

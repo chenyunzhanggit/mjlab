@@ -132,6 +132,14 @@ class ManagerBasedRlEnvCfg:
   algorithms that expect unscaled reward signals (e.g., HER, static reward scaling).
   """
 
+  use_delta_action: bool = False
+  """Whether to use delta action mode for joint position control.
+
+  When True, network actions are treated as delta actions and added to command_joint_pos
+  before being processed. This is useful for tracking tasks where the policy outputs
+  relative changes to the reference motion. Defaults to False (absolute actions).
+  """
+
 
 class ManagerBasedRlEnv:
   """Manager-based RL environment."""
@@ -318,7 +326,19 @@ class ManagerBasedRlEnv:
     return self.obs_buf, self.extras
 
   def step(self, action: torch.Tensor) -> types.VecEnvStepReturn:
-    self.action_manager.process_action(action.to(self.device))
+    action = action.to(self.device)
+    
+    if self.cfg.use_delta_action and isinstance(self.command_manager, CommandManager):
+      try:
+        # Get current step command_joint_pos from "motion" command (default for tracking tasks)
+        # command_current_joint_pos = self.command_manager.get_command_joint_pos_current("motion")  # 到 compute_obs 的时候 current joint_pos command 是下一帧了
+        command_current_joint_pos = self.obs_buf['policy'][:, 5*29:6*29]  # [history_steps * joint_num, history_steps+1 * joint_num]
+        # [NOTE] * 0.25 to accelerate the exploring process, as the output is the delta action on command. 
+        action = action * 0.25 + command_current_joint_pos
+      
+      except (AttributeError, KeyError, ValueError):
+        pass
+    self.action_manager.process_action(action)
 
     for _ in range(self.cfg.decimation):
       self._sim_step_counter += 1
