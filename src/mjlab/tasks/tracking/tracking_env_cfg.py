@@ -26,6 +26,8 @@ from mjlab.terrains import TerrainImporterCfg
 from mjlab.utils.noise import UniformNoiseCfg as Unoise
 from mjlab.viewer import ViewerConfig
 
+import math
+
 VELOCITY_RANGE = {
   "x": (-0.5, 0.5),
   "y": (-0.5, 0.5),
@@ -324,6 +326,47 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
   """Create base teleoperation task configuration."""
 
   ##
+  # Commands (defined early to access future_steps and history_steps)
+  ##
+  
+  motion_cmd_cfg = MultiMotionCommandCfg(
+    entity_name="robot",
+    resampling_time_range=(1.0e9, 1.0e9),
+    debug_vis=True,
+    pose_range={
+      "x": (-0.05, 0.05),
+      "y": (-0.05, 0.05),
+      "z": (-0.01, 0.01),
+      "roll": (-0.1, 0.1),
+      "pitch": (-0.1, 0.1),
+      "yaw": (-0.2, 0.2),
+    },
+    velocity_range=VELOCITY_RANGE,
+    joint_position_range=(-0.1, 0.1),
+
+    motion_path="",
+    anchor_body_name="",
+    body_names=(),
+    fall_recovery_ratio=0.15,  # 15%的环境躺下
+    fall_recovery_pose_range={
+        "roll": (-math.pi / 2.0, math.pi / 2.0),   # roll 范围
+        "pitch": (math.pi / 2.0 - 0.1, math.pi / 2.0 + 0.1), 
+        "yaw": (-math.pi, math.pi),  # 保持原始yaw
+    },
+    fall_recovery_joint_position_range=(-0.3, 0.3),  # 关节角度噪声
+    fall_recovery_joint_velocity_range=(-0.1, 0.1),  # 关节速度噪声
+    fall_recovery_velocity_range={
+        "x": (-0.15, 0.15),
+        "y": (-0.15, 0.15),
+        "z": (-0.15, 0.15),
+        "roll": (-0.52, 0.52),
+        "pitch": (-0.52, 0.52),
+        "yaw": (-0.78, 0.78),
+    },
+  )
+  num_ref_motion_time_steps = motion_cmd_cfg.history_steps + motion_cmd_cfg.future_steps
+
+  ##
   # Observations
   ##
 
@@ -338,20 +381,25 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
     "motion_anchor_vel_w": ObservationTermCfg(
       func=mdp.motion_anchor_vel_w,
       params={"command_name": "motion"},
-      noise=Unoise(n_min=-0.5, n_max=0.5),
+      noise=Unoise(
+        n_min=(-0.5, -0.5, -0.2) * num_ref_motion_time_steps, 
+        n_max=(0.5, 0.5, 0.2) * num_ref_motion_time_steps,
+      ),
     ),
     # ref anchor ori  OR ref projected_gravity? 
     "motion_anchor_projected_gravity": ObservationTermCfg(
       func=mdp.motion_anchor_projected_gravity,
       params={"command_name": "motion"},
-      noise=Unoise(n_min=-0.07, n_max=0.07),
+      noise=Unoise(n_min=-0.1, n_max=0.1),
     ),
     # ref anchor ang vel
     "motion_anchor_ang_vel_w": ObservationTermCfg(
       func=mdp.motion_anchor_ang_vel_w,
       params={"command_name": "motion"},
-      noise=Unoise(n_min=-0.52, n_max=0.52),
-      # scale=0.25,
+      noise=Unoise(
+        n_min=(-0.52, -0.52, -0.78) * num_ref_motion_time_steps,
+        n_max=(0.52, 0.52, 0.78) * num_ref_motion_time_steps,
+      ),
     ),
     
     # """ proprioceptive observations add history steps 5 frames? """
@@ -366,7 +414,6 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
       params={"sensor_name": "robot/imu_ang_vel"},
       noise=Unoise(n_min=-0.2, n_max=0.2),
       history_length=5,
-      # scale=0.25,
     ),
     "joint_pos": ObservationTermCfg(
       func=mdp.joint_pos_rel,
@@ -377,7 +424,6 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
     "joint_vel": ObservationTermCfg(
       func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5),
       history_length=5,
-      # scale=0.05,
     ),
     "actions": ObservationTermCfg(func=mdp.last_action, 
     history_length=5,
@@ -445,25 +491,7 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
   ##
 
   commands: dict[str, CommandTermCfg] = {
-    "motion": MultiMotionCommandCfg(
-      entity_name="robot",
-      resampling_time_range=(1.0e9, 1.0e9),
-      debug_vis=True,
-      pose_range={
-        "x": (-0.05, 0.05),
-        "y": (-0.05, 0.05),
-        "z": (-0.01, 0.01),
-        "roll": (-0.1, 0.1),
-        "pitch": (-0.1, 0.1),
-        "yaw": (-0.2, 0.2),
-      },
-      velocity_range=VELOCITY_RANGE,
-      joint_position_range=(-0.1, 0.1),
-      # Override in robot cfg.
-      motion_path="",
-      anchor_body_name="",
-      body_names=(),
-    )
+    "motion": motion_cmd_cfg,
   }
   ##
   # Events
@@ -568,11 +596,11 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
   terminations: dict[str, TerminationTermCfg] = {
     "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
     "anchor_pos": TerminationTermCfg(
-      func=mdp.bad_anchor_pos_z_only,
+      func=mdp.bad_anchor_pos_z_only_fall_recovery,
       params={"command_name": "motion", "threshold": 0.25},
     ),
     "anchor_ori": TerminationTermCfg(
-      func=mdp.bad_anchor_ori,
+      func=mdp.bad_anchor_ori_fall_recovery,
       params={
         "asset_cfg": SceneEntityCfg("robot"),
         "command_name": "motion",
@@ -580,7 +608,7 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
       },
     ),
     "ee_body_pos": TerminationTermCfg(
-      func=mdp.bad_motion_body_pos_z_only,
+      func=mdp.bad_motion_body_pos_z_only_fall_recovery,
       params={
         "command_name": "motion",
         "threshold": 0.25,

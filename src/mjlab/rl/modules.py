@@ -29,8 +29,8 @@ class MjlabActorCritic(ActorCritic):
           f"Unknown standard deviation type: {self.noise_std_type}. "
           "Should be 'scalar' or 'log'"
         )
-    import ipdb; ipdb.set_trace()
-    std = torch.clamp(std, min=0.001, max=0.5) 
+
+    std = torch.clamp(std, min=0.001, max=0.5)   # from SONIC 
 
     self.distribution = torch.distributions.Normal(mean, std)
 

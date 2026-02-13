@@ -168,14 +168,14 @@ def unitree_g1_teleoperation_env_cfg(
     cfg.observations["policy"] = ObservationGroupCfg(
       terms=new_policy_terms,
       concatenate_terms=True,
-      enable_corruption=True,
+    enable_corruption=True,
     )
 
   # Apply play mode overrides.
   if play:
     # Effectively infinite episode length.
     cfg.episode_length_s = int(1e9)
-
+    cfg.commands["motion"].fall_recovery_ratio = 0.0
     cfg.observations["policy"].enable_corruption = False
     cfg.events.pop("push_robot", None)
 

@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import mujoco
 import numpy as np
@@ -30,6 +30,7 @@ from mjlab.scene.scene import SceneCfg
 from mjlab.sim import SimulationCfg
 from mjlab.sim.sim import Simulation
 from mjlab.utils import random as random_utils
+from mjlab.utils.lab_api.math import sample_uniform
 from mjlab.utils.logging import print_info
 from mjlab.utils.spaces import Box
 from mjlab.utils.spaces import Dict as DictSpace
@@ -197,11 +198,12 @@ class ManagerBasedRlEnv:
     print_info(table.get_string())
     print_info("")
 
-    # Initialize RL-specific state.
     self.common_step_counter = 0
     self.episode_length_buf = torch.zeros(
       cfg.scene.num_envs, device=device, dtype=torch.long
     )
+    # Initialize max pull force for fall recovery curriculum
+    self.max_pull_force = 200.0  # Initial max pull force (Newtons)
     self.render_mode = render_mode
     self._offline_renderer: OffscreenRenderer | None = None
     if self.render_mode == "rgb_array":
@@ -307,6 +309,122 @@ class ManagerBasedRlEnv:
     if "startup" in self.event_manager.available_modes:
       self.event_manager.apply(mode="startup")
 
+  def _update_pull_force_curriculum(
+    self,
+    avg_height_diff: float,
+  ) -> None:
+    """Update the max pull force curriculum based on average height difference.
+    
+    Args:
+      avg_height_diff: Average height difference between target and actual height
+        for fall recovery environments.
+    """
+    # Adaptive curriculum: adjust max_pull_force based on average height difference
+    if avg_height_diff > 0.4:
+      # If average height difference > 0.4, keep max force at 200
+      self.max_pull_force = 200.0
+    elif avg_height_diff < 0.4:
+      # If average height difference < 0.4, reduce max force by 0.99
+      self.max_pull_force = self.max_pull_force * 0.998
+      if avg_height_diff >= 0.3:
+        # When 0.3 <= avg_height_diff < 0.4, enforce lower limit of 120
+        if self.max_pull_force < 120.0:
+          self.max_pull_force = 120.0
+      else:
+        # If average height difference < 0.3, continue reducing by 0.99
+        # No lower limit after this point
+        self.max_pull_force = self.max_pull_force * 0.998
+
+  def _apply_fall_recovery_pull_force(
+    self,
+    motion_cfg: Any,
+  ) -> float | None:
+    """Apply pull force to fall recovery environments.
+    
+    Args:
+      motion_cfg: Motion command configuration.
+      
+    Returns:
+      Average height difference if fall recovery environments exist, None otherwise.
+    """
+    try:
+      # Get the command instance (not config) to access runtime data
+      motion_cmd = self.command_manager.get_term("motion")
+      if motion_cmd is None:
+        return None
+        
+      # Check if this is a MultiMotionCommand with fall recovery support
+      from mjlab.tasks.tracking.mdp.multi_commands import MultiMotionCommand
+      if not isinstance(motion_cmd, MultiMotionCommand):
+        return None
+        
+      # Get fall recovery mask from command instance
+      fall_recovery_mask = getattr(motion_cmd, "init_fall_recovery_mask", None)
+      if fall_recovery_mask is None:
+        return None
+        
+      fall_recovery_env_ids = torch.where(fall_recovery_mask)[0]
+      if len(fall_recovery_env_ids) == 0:
+        return None
+        
+      # Get robot entity from command instance
+      robot = motion_cmd.robot
+      # Get base body index (use anchor body index) from command instance
+      base_body_index = motion_cmd.robot_anchor_body_index
+      # Get actual and target heights for fall recovery environments
+      robot_anchor_pos_w = motion_cmd.robot_anchor_pos_w
+      anchor_pos_w = motion_cmd.anchor_pos_w
+        
+      actual_height = robot_anchor_pos_w[fall_recovery_env_ids, 2]
+      target_height = anchor_pos_w[fall_recovery_env_ids, 2]
+      
+      height_diff = target_height - actual_height
+      height_threshold = 0.2
+      need_force_mask = height_diff > height_threshold
+
+      # [NOTE] 先全部拉起
+      need_force_mask = torch.ones(len(fall_recovery_env_ids), dtype=torch.bool, device=self.device)
+      
+      # Calculate average height difference for fall recovery environments
+      avg_height_diff = height_diff.mean().item()
+      
+      # Create force tensor for all fall recovery environments
+      num_fall_recovery = len(fall_recovery_env_ids)
+      force_tensor = torch.zeros(
+        (num_fall_recovery, 1, 3), 
+        device=self.device
+      )
+      
+      # Sample random force values from 0 to max_pull_force
+      if need_force_mask.any():
+        num_need_force = int(need_force_mask.sum().item())
+        # Sample random force values (0 to max_pull_force)
+        random_force_values = sample_uniform(
+          0.0, self.max_pull_force, (num_need_force,), device=self.device
+        )
+        
+        force_tensor[need_force_mask, 0, 2] = random_force_values
+      
+      # Apply zero torque
+      torque_tensor = torch.zeros(
+        (num_fall_recovery, 1, 3),
+        device=self.device
+      )
+      
+      # Apply force and torque to the robot's base body for all fall recovery envs
+      # (force will be 0 for environments that don't need it)
+      robot.write_external_wrench_to_sim(
+        force_tensor, 
+        torque_tensor, 
+        env_ids=fall_recovery_env_ids,
+        body_ids=[base_body_index]
+      )
+      # print("force_tensor: ", force_tensor)
+      return avg_height_diff
+    except (AttributeError, KeyError, TypeError):
+      # Command term might not exist or might not be MultiMotionCommand
+      return None
+
   def reset(
     self,
     *,
@@ -327,26 +445,38 @@ class ManagerBasedRlEnv:
 
   def step(self, action: torch.Tensor) -> types.VecEnvStepReturn:
     action = action.to(self.device)
-    
+
+    # get the motion command configuration
+    motion_cfg = self.command_manager.get_term_cfg("motion")
     if self.cfg.use_delta_action and isinstance(self.command_manager, CommandManager):
       try:
-        # Get current step command_joint_pos from "motion" command (default for tracking tasks)
         # command_current_joint_pos = self.command_manager.get_command_joint_pos_current("motion")  # 到 compute_obs 的时候 current joint_pos command 是下一帧了
-        command_current_joint_pos = self.obs_buf['policy'][:, 5*29:6*29]  # [history_steps * joint_num, history_steps+1 * joint_num]
+        # 根据 command 配置里的 history_steps 和关节数自动计算切片区间，避免硬编码 5。
+        history_steps = getattr(motion_cfg, "history_steps", 0)
+        joint_dim = self.action_manager.get_term("joint_pos").action_dim
+        start = history_steps * joint_dim
+        end = (history_steps + 1) * joint_dim
+        policy_obs = cast(torch.Tensor, self.obs_buf["policy"])
+        command_current_joint_pos = policy_obs[:, start:end]
         # [NOTE] * 0.25 to accelerate the exploring process, as the output is the delta action on command. 
         action = action * 0.25 + command_current_joint_pos
-      
       except (AttributeError, KeyError, ValueError):
         pass
     self.action_manager.process_action(action)
 
+    # Track average height difference for curriculum update
+    avg_height_diff: float | None = None
     for _ in range(self.cfg.decimation):
       self._sim_step_counter += 1
       self.action_manager.apply_action()
       self.scene.write_data_to_sim()
       self.sim.step()
       self.scene.update(dt=self.physics_dt)
-
+      # Apply curriculum pull force for fall recovery environments
+      if getattr(motion_cfg, "fall_recovery_ratio", 0) > 0.0:
+        result = self._apply_fall_recovery_pull_force(motion_cfg)
+        if result is not None:
+          avg_height_diff = result 
     # Update env counters.
     self.episode_length_buf += 1
     self.common_step_counter += 1
@@ -371,6 +501,9 @@ class ManagerBasedRlEnv:
       self.event_manager.apply(mode="interval", dt=self.step_dt)
 
     self.obs_buf = self.observation_manager.compute(update_history=True)
+    # Update pull force curriculum if fall recovery environments exist
+    if avg_height_diff is not None:
+      self._update_pull_force_curriculum(avg_height_diff)
 
     return (
       self.obs_buf,

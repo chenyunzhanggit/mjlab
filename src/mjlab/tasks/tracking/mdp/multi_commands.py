@@ -12,6 +12,7 @@ import torch
 
 from mjlab.managers import CommandTerm, CommandTermCfg
 from mjlab.utils.lab_api.math import (
+    euler_xyz_from_quat,
     matrix_from_quat,
     quat_apply,
     quat_error_magnitude,
@@ -229,7 +230,6 @@ class MultiMotionCommand(CommandTerm):
         self.buffer_length: int = int(
             min(max_episode_length, self.motion.file_lengths.max().item())
         ) + self.cfg.future_steps + self.cfg.history_steps
-
         # 初始化状态变量
         self.time_steps = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
         self.motion_idx = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
@@ -276,8 +276,9 @@ class MultiMotionCommand(CommandTerm):
             self.metrics["sampling_top1_prob"] = torch.zeros(self.num_envs, device=self.device)
             self.metrics["sampling_top1_bin"] = torch.zeros(self.num_envs, device=self.device)
 
-        # 用于控制打印频率的计数器
-        self._print_counter = 0
+        # 记录躺下环境的 mask 和 env_ids
+        self.init_fall_recovery_mask = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        self.init_fall_recovery_env_ids: torch.Tensor = torch.tensor([], dtype=torch.long, device=self.device)
 
         # Ghost model created lazily on first visualization
         self._ghost_model: mujoco.MjModel | None = None
@@ -661,8 +662,9 @@ class MultiMotionCommand(CommandTerm):
                 torch.arange(self.num_envs, device=self.device)[:, None], future_indices
             ]
             parts.append(future_data)
-  
+
         # Concatenate all parts along the time dimension
+        
         if len(parts) > 1:
             return torch.cat(parts, dim=1).view(self.num_envs, -1)
         else:
@@ -1011,11 +1013,9 @@ class MultiMotionCommand(CommandTerm):
     
         if self.cfg.sampling_mode == "start":
             self.time_steps[env_ids] = 0
-            self._print_counter += 1
-            if self._print_counter % 300 == 0:
-                print(
-                    " ************** [FOR DEBUG] WARNING: All envs time steps is set to start initialization ! ************** "
-                )
+            print(
+                " ************** [FOR DEBUG] WARNING: All envs time steps is set to start initialization ! ************** "
+            )
 
         elif self.cfg.sampling_mode == "uniform":
             self._uniform_sampling(env_ids)
@@ -1071,6 +1071,118 @@ class MultiMotionCommand(CommandTerm):
             soft_joint_pos_limits[:, :, 0],
             soft_joint_pos_limits[:, :, 1],
         )
+        
+        # 随机选择指定比例的环境设置为躺下状态
+        num_envs_to_reset = len(env_ids)
+        num_fall_recovery = int(num_envs_to_reset * self.cfg.fall_recovery_ratio)  
+        
+        # 先清除当前重置环境的躺下标记（因为要重新分配）
+        self.init_fall_recovery_mask[env_ids] = False
+        
+        # 从 env_ids 中随机选择要躺下的环境
+        if num_fall_recovery < num_envs_to_reset:
+            # 随机打乱 env_ids 并选择前 num_fall_recovery 个
+            perm = torch.randperm(num_envs_to_reset, device=self.device)
+            fall_recovery_local_indices = perm[:num_fall_recovery]
+            fall_recovery_env_ids = env_ids[fall_recovery_local_indices]
+        else:
+            # 如果比例超过100%，则全部设置为躺下
+            fall_recovery_env_ids = env_ids
+        
+        # 更新躺下环境的 mask
+        self.init_fall_recovery_mask[fall_recovery_env_ids] = True
+        # 记录躺下环境的 env_ids（只记录当前重置的躺下环境）
+        self.init_fall_recovery_env_ids = fall_recovery_env_ids.clone()
+        # 对于躺下的环境，应用特殊的初始化配置
+        if len(fall_recovery_env_ids) > 0:
+            # 从配置中获取 RPY 范围
+            roll_range = self.cfg.fall_recovery_pose_range.get("roll", (0.0, 0.0))
+            pitch_range = self.cfg.fall_recovery_pose_range.get("pitch", (math.pi / 2.0, math.pi / 2.0))
+            yaw_range = self.cfg.fall_recovery_pose_range.get("yaw", (0.0, 0.0)) 
+
+            
+            
+            # 采样 roll pitch yaw
+            fall_recovery_roll = sample_uniform(
+                roll_range[0], roll_range[1], (len(fall_recovery_env_ids),), device=self.device
+            )
+            fall_recovery_pitch = sample_uniform(
+                pitch_range[0], pitch_range[1], (len(fall_recovery_env_ids),), device=self.device
+            )
+            fall_recovery_yaw = sample_uniform(
+                yaw_range[0], yaw_range[1], (len(fall_recovery_env_ids),), device=self.device
+            )
+
+            # 对 15% 的环境随机乘以 ±1
+            flip_num_envs = len(fall_recovery_env_ids)
+            if flip_num_envs > 0:
+                # 随机选择要翻转的环境索引
+                flip_indices = torch.randperm(flip_num_envs, device=self.device)[:flip_num_envs]
+                # 随机生成 ±1 的符号
+                flip_signs = torch.randint(0, 2, (flip_num_envs,), device=self.device) * 2 - 1  # 生成 -1 或 1
+                fall_recovery_pitch[flip_indices] *= flip_signs
+            
+            fall_recovery_quat = quat_from_euler_xyz(
+                fall_recovery_roll, 
+                fall_recovery_pitch, 
+                fall_recovery_yaw
+            )
+            
+            # 更新躺下环境的方向
+            root_ori[fall_recovery_env_ids] = fall_recovery_quat
+            
+            # 2. 应用躺下状态的关节角度噪声
+            self.robot.data.default_joint_pos
+            fall_recovery_joint_pos = joint_pos[fall_recovery_env_ids].clone()
+            fall_recovery_joint_pos += sample_uniform(
+                lower=self.cfg.fall_recovery_joint_position_range[0],
+                upper=self.cfg.fall_recovery_joint_position_range[1],
+                size=fall_recovery_joint_pos.shape,
+                device=str(fall_recovery_joint_pos.device),
+            )
+            # 限制在关节软限制内
+            soft_joint_pos_limits_recovery = self.robot.data.soft_joint_pos_limits[fall_recovery_env_ids]
+            fall_recovery_joint_pos = torch.clip(
+                fall_recovery_joint_pos,
+                soft_joint_pos_limits_recovery[:, :, 0],
+                soft_joint_pos_limits_recovery[:, :, 1],
+            )
+            joint_pos[fall_recovery_env_ids] = fall_recovery_joint_pos
+            
+            # 3. 应用躺下状态的关节速度噪声
+            fall_recovery_joint_vel = joint_vel[fall_recovery_env_ids].clone()
+            fall_recovery_joint_vel += sample_uniform(
+                lower=self.cfg.fall_recovery_joint_velocity_range[0],
+                upper=self.cfg.fall_recovery_joint_velocity_range[1],
+                size=fall_recovery_joint_vel.shape,
+                device=str(fall_recovery_joint_vel.device),
+            )
+            joint_vel[fall_recovery_env_ids] = fall_recovery_joint_vel
+            
+            # 4. 应用躺下状态的速度范围（如果需要）
+            if self.cfg.fall_recovery_velocity_range:
+                fall_recovery_velocity_range_list = [
+                    self.cfg.fall_recovery_velocity_range.get(key, (0.0, 0.0))
+                    for key in ["x", "y", "z", "roll", "pitch", "yaw"]
+                ]
+                fall_recovery_velocity_ranges = torch.tensor(
+                    fall_recovery_velocity_range_list, device=self.device
+                )
+                fall_recovery_velocity_samples = sample_uniform(
+                    fall_recovery_velocity_ranges[:, 0],
+                    fall_recovery_velocity_ranges[:, 1],
+                    (len(fall_recovery_env_ids), 6),
+                    device=self.device,
+                )
+                root_lin_vel[fall_recovery_env_ids] += fall_recovery_velocity_samples[:, :3]
+                root_ang_vel[fall_recovery_env_ids] += fall_recovery_velocity_samples[:, 3:]
+
+            # 设置 fall_recovery 环境的初始位置为 (0, 0, 0.2)，相对于 env_origins
+            root_pos[fall_recovery_env_ids] = (
+                self._env.scene.env_origins[fall_recovery_env_ids] + 
+                torch.tensor([0.0, 0.0, 0.20], device=self.device).unsqueeze(0).repeat(len(fall_recovery_env_ids), 1)
+            )
+
         self.robot.write_joint_state_to_sim(
             joint_pos[env_ids], joint_vel[env_ids], env_ids=env_ids
         )
@@ -1090,7 +1202,6 @@ class MultiMotionCommand(CommandTerm):
         self.robot.clear_state(env_ids=env_ids)
 
     def _update_command(self):
-        # time_steps正常情况是按顺序增加，如果完成了一个序列，再重新按失败率采样
         self.time_steps += 1
         env_ids = torch.where(self.time_steps >= self.motion_length)[0]
         if env_ids.numel() > 0:
@@ -1212,6 +1323,21 @@ class MultiMotionCommandCfg(CommandTermCfg):
     pose_range: dict[str, tuple[float, float]] = field(default_factory=dict)
     velocity_range: dict[str, tuple[float, float]] = field(default_factory=dict)
     joint_position_range: tuple[float, float] = (-0.52, 0.52)
+    
+
+    fall_recovery_ratio: float = 0.0
+    fall_recovery_pose_range: dict[str, tuple[float, float]] = field(
+        default_factory=lambda: {
+            "roll": (-math.pi / 2.0, math.pi / 2.0),
+            "pitch": (-math.pi / 2.0, math.pi / 2.0),
+            "yaw": (-math.pi, math.pi), 
+        }
+    )
+    fall_recovery_velocity_range: dict[str, tuple[float, float]] = field(default_factory=dict)
+    
+    fall_recovery_joint_position_range: tuple[float, float] = (-0.52, 0.52)
+    
+    fall_recovery_joint_velocity_range: tuple[float, float] = (0.0, 0.0)
 
     # Ref Motion: Future/History steps configuration for N-step lookahead
     future_steps: int = 5 #1 
