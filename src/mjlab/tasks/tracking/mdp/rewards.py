@@ -8,6 +8,7 @@ from mjlab.sensor import ContactSensor
 from mjlab.utils.lab_api.math import quat_error_magnitude
 
 from .commands import MotionCommand
+from .multi_commands import MultiMotionCommand
 
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
@@ -111,6 +112,159 @@ def motion_global_body_angular_velocity_error_exp(
     dim=-1,
   )
   return torch.exp(-error.mean(-1) / std**2)
+
+def motion_global_anchor_height_error_exp_fall_recovery(
+  env: ManagerBasedRlEnv, command_name: str, std: float
+) -> torch.Tensor:
+  command = cast(MotionCommand, env.command_manager.get_term(command_name))
+  
+  # Initialize reward to zero for all environments
+  num_envs = command.anchor_pos_w.shape[0]
+  reward = torch.zeros(num_envs, device=command.anchor_pos_w.device)
+  
+  if isinstance(command, MultiMotionCommand):
+    fall_recovery_mask = getattr(command, "init_fall_recovery_mask", None)
+    if fall_recovery_mask is not None:
+      actual_height = command.robot_anchor_pos_w[:, 2]  
+      target_height = command.anchor_pos_w[:, 2] 
+      height_error = torch.square(target_height - actual_height)
+      
+      fall_recovery_reward = torch.exp(-height_error / std**2)
+      reward = torch.where(fall_recovery_mask, fall_recovery_reward, reward)
+  
+  return reward
+
+def motion_global_anchor_orientation_error_exp_fall_recovery(
+  env: ManagerBasedRlEnv, command_name: str, std: float
+) -> torch.Tensor:
+  command = cast(MotionCommand, env.command_manager.get_term(command_name))
+  error = quat_error_magnitude(command.anchor_quat_w, command.robot_anchor_quat_w) ** 2
+
+  fall_recovery_protected = torch.zeros(
+    error.shape[0], dtype=torch.bool, device=error.device
+  )
+  if isinstance(command, MultiMotionCommand):
+    fall_recovery_mask = getattr(command, "init_fall_recovery_mask", None)
+    if fall_recovery_mask is not None:
+      current_steps = command.time_steps - command.buffer_start_time
+      # 150 = 3s / 0.02s (step_dt)
+      # Only give reward to fall recovery environments after 150 steps
+      fall_recovery_protected = fall_recovery_mask & (current_steps < 150)
+
+  return torch.exp(-error / std**2) * ~fall_recovery_protected
+
+
+def motion_relative_body_position_error_exp_fall_recovery(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  std: float,
+  body_names: tuple[str, ...] | None = None,
+) -> torch.Tensor:
+  command = cast(MotionCommand, env.command_manager.get_term(command_name))
+  body_indexes = _get_body_indexes(command, body_names)
+  error = torch.sum(
+    torch.square(
+      command.body_pos_relative_w[:, body_indexes]
+      - command.robot_body_pos_w[:, body_indexes]
+    ),
+    dim=-1,
+  )
+  fall_recovery_protected = torch.zeros(
+    error.shape[0], dtype=torch.bool, device=error.device
+  )
+  if isinstance(command, MultiMotionCommand):
+    fall_recovery_mask = getattr(command, "init_fall_recovery_mask", None)
+    if fall_recovery_mask is not None:
+      current_steps = command.time_steps - command.buffer_start_time
+      # 150 = 3s / 0.02s (step_dt)
+      # Only give reward to fall recovery environments after 150 steps
+      fall_recovery_protected = fall_recovery_mask & (current_steps < 150)
+
+  return torch.exp(-error.mean(-1) / std**2) * ~fall_recovery_protected
+
+
+def motion_relative_body_orientation_error_exp_fall_recovery(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  std: float,
+  body_names: tuple[str, ...] | None = None,
+) -> torch.Tensor:
+  command = cast(MotionCommand, env.command_manager.get_term(command_name))
+  body_indexes = _get_body_indexes(command, body_names)
+  error = (
+    quat_error_magnitude(
+      command.body_quat_relative_w[:, body_indexes],
+      command.robot_body_quat_w[:, body_indexes],
+    )
+    ** 2
+  )
+  fall_recovery_protected = torch.zeros(
+    error.shape[0], dtype=torch.bool, device=error.device
+  )
+  if isinstance(command, MultiMotionCommand):
+    fall_recovery_mask = getattr(command, "init_fall_recovery_mask", None)
+    if fall_recovery_mask is not None:
+      current_steps = command.time_steps - command.buffer_start_time
+      # 150 = 3s / 0.02s (step_dt)
+      # Only give reward to fall recovery environments after 150 steps
+      fall_recovery_protected = fall_recovery_mask & (current_steps < 150)
+  return torch.exp(-error.mean(-1) / std**2) * ~fall_recovery_protected
+
+
+def motion_global_body_linear_velocity_error_exp_fall_recovery(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  std: float,
+  body_names: tuple[str, ...] | None = None,
+) -> torch.Tensor:
+  command = cast(MotionCommand, env.command_manager.get_term(command_name))
+  body_indexes = _get_body_indexes(command, body_names)
+  error = torch.sum(
+    torch.square(
+      command.body_lin_vel_w[:, body_indexes]
+      - command.robot_body_lin_vel_w[:, body_indexes]
+    ),
+    dim=-1,
+  )
+  fall_recovery_protected = torch.zeros(
+    error.shape[0], dtype=torch.bool, device=error.device
+  )
+  if isinstance(command, MultiMotionCommand):
+    fall_recovery_mask = getattr(command, "init_fall_recovery_mask", None)
+    if fall_recovery_mask is not None:
+      current_steps = command.time_steps - command.buffer_start_time
+      # 150 = 3s / 0.02s (step_dt)
+      # Only give reward to fall recovery environments after 150 steps
+      fall_recovery_protected = fall_recovery_mask & (current_steps < 150)
+  return torch.exp(-error.mean(-1) / std**2) * ~fall_recovery_protected
+
+
+def motion_global_body_angular_velocity_error_exp_fall_recovery(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  std: float,
+  body_names: tuple[str, ...] | None = None,
+) -> torch.Tensor:
+  command = cast(MotionCommand, env.command_manager.get_term(command_name))
+  body_indexes = _get_body_indexes(command, body_names)
+  error = torch.sum(
+    torch.square(
+      command.body_ang_vel_w[:, body_indexes]
+      - command.robot_body_ang_vel_w[:, body_indexes]
+    ),
+    dim=-1,
+  )
+  fall_recovery_protected = torch.zeros(
+    error.shape[0], dtype=torch.bool, device=error.device
+  )
+  if isinstance(command, MultiMotionCommand):
+    fall_recovery_mask = getattr(command, "init_fall_recovery_mask", None)
+    if fall_recovery_mask is not None:
+      current_steps = command.time_steps - command.buffer_start_time
+      # 150 = 3s / 0.02s (step_dt)
+      # Only give reward to fall recovery environments after 150 steps
+      fall_recovery_protected = fall_recovery_mask & (current_steps < 150)
+  return torch.exp(-error.mean(-1) / std**2) * ~fall_recovery_protected
 
 
 def self_collision_cost(env: ManagerBasedRlEnv, sensor_name: str) -> torch.Tensor:

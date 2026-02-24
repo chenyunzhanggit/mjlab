@@ -175,7 +175,7 @@ def unitree_g1_teleoperation_env_cfg(
   if play:
     # Effectively infinite episode length.
     cfg.episode_length_s = int(1e9)
-    cfg.commands["motion"].fall_recovery_ratio = 0.0
+    cfg.commands["motion"].fall_recovery_ratio = 0.15
     cfg.observations["policy"].enable_corruption = False
     cfg.events.pop("push_robot", None)
 

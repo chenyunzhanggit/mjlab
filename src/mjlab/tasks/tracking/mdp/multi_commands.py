@@ -1074,8 +1074,8 @@ class MultiMotionCommand(CommandTerm):
         
         # 随机选择指定比例的环境设置为躺下状态
         num_envs_to_reset = len(env_ids)
-        num_fall_recovery = int(num_envs_to_reset * self.cfg.fall_recovery_ratio)  
-        
+        num_fall_recovery = max(1, int(num_envs_to_reset * self.cfg.fall_recovery_ratio)) 
+        # num_fall_recovery = int(num_envs_to_reset * self.cfg.fall_recovery_ratio)  
         # 先清除当前重置环境的躺下标记（因为要重新分配）
         self.init_fall_recovery_mask[env_ids] = False
         
@@ -1086,7 +1086,6 @@ class MultiMotionCommand(CommandTerm):
             fall_recovery_local_indices = perm[:num_fall_recovery]
             fall_recovery_env_ids = env_ids[fall_recovery_local_indices]
         else:
-            # 如果比例超过100%，则全部设置为躺下
             fall_recovery_env_ids = env_ids
         
         # 更新躺下环境的 mask
@@ -1100,8 +1099,6 @@ class MultiMotionCommand(CommandTerm):
             pitch_range = self.cfg.fall_recovery_pose_range.get("pitch", (math.pi / 2.0, math.pi / 2.0))
             yaw_range = self.cfg.fall_recovery_pose_range.get("yaw", (0.0, 0.0)) 
 
-            
-            
             # 采样 roll pitch yaw
             fall_recovery_roll = sample_uniform(
                 roll_range[0], roll_range[1], (len(fall_recovery_env_ids),), device=self.device
@@ -1113,7 +1110,6 @@ class MultiMotionCommand(CommandTerm):
                 yaw_range[0], yaw_range[1], (len(fall_recovery_env_ids),), device=self.device
             )
 
-            # 对 15% 的环境随机乘以 ±1
             flip_num_envs = len(fall_recovery_env_ids)
             if flip_num_envs > 0:
                 # 随机选择要翻转的环境索引

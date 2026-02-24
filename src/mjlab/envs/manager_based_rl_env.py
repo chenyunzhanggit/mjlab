@@ -203,7 +203,7 @@ class ManagerBasedRlEnv:
       cfg.scene.num_envs, device=device, dtype=torch.long
     )
     # Initialize max pull force for fall recovery curriculum
-    self.max_pull_force = 200.0  # Initial max pull force (Newtons)
+    self.max_pull_force = 250.0  # Initial max pull force (Newtons)
     self.render_mode = render_mode
     self._offline_renderer: OffscreenRenderer | None = None
     if self.render_mode == "rgb_array":
@@ -322,7 +322,7 @@ class ManagerBasedRlEnv:
     # Adaptive curriculum: adjust max_pull_force based on average height difference
     if avg_height_diff > 0.4:
       # If average height difference > 0.4, keep max force at 200
-      self.max_pull_force = 200.0
+      self.max_pull_force = 250.0
     elif avg_height_diff < 0.4:
       # If average height difference < 0.4, reduce max force by 0.99
       self.max_pull_force = self.max_pull_force * 0.998
@@ -334,6 +334,11 @@ class ManagerBasedRlEnv:
         # If average height difference < 0.3, continue reducing by 0.99
         # No lower limit after this point
         self.max_pull_force = self.max_pull_force * 0.998
+    
+    # Log max_pull_force to extras
+    if "log" not in self.extras:
+      self.extras["log"] = {}
+    self.extras["log"]["Curriculum/max_pull_force"] = self.max_pull_force
 
   def _apply_fall_recovery_pull_force(
     self,
@@ -400,7 +405,7 @@ class ManagerBasedRlEnv:
         num_need_force = int(need_force_mask.sum().item())
         # Sample random force values (0 to max_pull_force)
         random_force_values = sample_uniform(
-          0.0, self.max_pull_force, (num_need_force,), device=self.device
+          self.max_pull_force/2.0, self.max_pull_force, (num_need_force,), device=self.device
         )
         
         force_tensor[need_force_mask, 0, 2] = random_force_values
@@ -410,9 +415,13 @@ class ManagerBasedRlEnv:
         (num_fall_recovery, 1, 3),
         device=self.device
       )
-      
-      # Apply force and torque to the robot's base body for all fall recovery envs
-      # (force will be 0 for environments that don't need it)
+
+      # for play 
+      # force_tensor = force_tensor * 0.0
+      # torque_tensor = torque_tensor * 0.0
+      # print("force_tensor: ", force_tensor)
+      # print("torque_tensor: ", torque_tensor)
+
       robot.write_external_wrench_to_sim(
         force_tensor, 
         torque_tensor, 
@@ -445,13 +454,11 @@ class ManagerBasedRlEnv:
 
   def step(self, action: torch.Tensor) -> types.VecEnvStepReturn:
     action = action.to(self.device)
-
     # get the motion command configuration
     motion_cfg = self.command_manager.get_term_cfg("motion")
     if self.cfg.use_delta_action and isinstance(self.command_manager, CommandManager):
       try:
         # command_current_joint_pos = self.command_manager.get_command_joint_pos_current("motion")  # 到 compute_obs 的时候 current joint_pos command 是下一帧了
-        # 根据 command 配置里的 history_steps 和关节数自动计算切片区间，避免硬编码 5。
         history_steps = getattr(motion_cfg, "history_steps", 0)
         joint_dim = self.action_manager.get_term("joint_pos").action_dim
         start = history_steps * joint_dim
@@ -503,6 +510,7 @@ class ManagerBasedRlEnv:
     self.obs_buf = self.observation_manager.compute(update_history=True)
     # Update pull force curriculum if fall recovery environments exist
     if avg_height_diff is not None:
+      # print("fall recovery ")
       self._update_pull_force_curriculum(avg_height_diff)
 
     return (

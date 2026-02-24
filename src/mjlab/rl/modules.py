@@ -30,7 +30,7 @@ class MjlabActorCritic(ActorCritic):
           "Should be 'scalar' or 'log'"
         )
 
-    std = torch.clamp(std, min=0.001, max=0.5)   # from SONIC 
+    std = torch.clamp(std, min=0.001, max=1.0)   # from SONIC 
 
     self.distribution = torch.distributions.Normal(mean, std)
 

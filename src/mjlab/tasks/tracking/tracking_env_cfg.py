@@ -347,7 +347,7 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
     motion_path="",
     anchor_body_name="",
     body_names=(),
-    fall_recovery_ratio=0.15,  # 15%的环境躺下
+    fall_recovery_ratio=0.15,
     fall_recovery_pose_range={
         "roll": (-math.pi / 2.0, math.pi / 2.0),   # roll 范围
         "pitch": (math.pi / 2.0 - 0.1, math.pi / 2.0 + 0.1), 
@@ -552,27 +552,27 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
       params={"command_name": "motion", "std": 0.3},
     ),
     "motion_global_root_ori": RewardTermCfg(
-      func=mdp.motion_global_anchor_orientation_error_exp,
+      func=mdp.motion_global_anchor_orientation_error_exp_fall_recovery,
       weight=0.5,
       params={"command_name": "motion", "std": 0.4},
     ),
     "motion_body_pos": RewardTermCfg(
-      func=mdp.motion_relative_body_position_error_exp,
+      func=mdp.motion_relative_body_position_error_exp_fall_recovery,
       weight=1.0,
       params={"command_name": "motion", "std": 0.3},
     ),
     "motion_body_ori": RewardTermCfg(
-      func=mdp.motion_relative_body_orientation_error_exp,
+      func=mdp.motion_relative_body_orientation_error_exp_fall_recovery,
       weight=1.0,
       params={"command_name": "motion", "std": 0.4},
     ),
     "motion_body_lin_vel": RewardTermCfg(
-      func=mdp.motion_global_body_linear_velocity_error_exp,
+      func=mdp.motion_global_body_linear_velocity_error_exp_fall_recovery,
       weight=1.0,
       params={"command_name": "motion", "std": 1.0},
     ),
     "motion_body_ang_vel": RewardTermCfg(
-      func=mdp.motion_global_body_angular_velocity_error_exp,
+      func=mdp.motion_global_body_angular_velocity_error_exp_fall_recovery,
       weight=1.0,
       params={"command_name": "motion", "std": 3.14},
     ),
@@ -586,6 +586,12 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
       func=mdp.self_collision_cost,
       weight=-10.0,
       params={"sensor_name": "self_collision"},
+    ),
+
+    "motion_global_anchor_height_error_exp_fall_recovery": RewardTermCfg(
+      func=mdp.motion_global_anchor_height_error_exp_fall_recovery,
+      weight=2.0,
+      params={"command_name": "motion", "std": 0.3},
     ),
   }
 
