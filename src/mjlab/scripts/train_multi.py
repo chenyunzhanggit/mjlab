@@ -79,15 +79,70 @@ def get_data10K_motion_files(motion_path: str, recursive: bool = True) -> list[s
         raise ValueError(f"无效路径: {motion_path}。必须是文件或目录。")
 
 
+def shard_motion_files(motion_files: list[str], rank: int, world_size: int) -> list[str]:
+    """Shard motion files across multiple GPUs to reduce memory usage.
+    
+    Each GPU will only load a subset of the motion files, reducing memory/VRAM usage.
+    This is especially useful when training with large datasets.
+    
+    Args:
+        motion_files: List of all motion file paths
+        rank: Current process rank (0 to world_size-1)
+        world_size: Total number of processes/GPUs
+        
+    Returns:
+        List of motion files assigned to this rank
+        
+    Raises:
+        ValueError: If world_size > num_files (not enough files for all GPUs)
+    """
+    if world_size <= 1:
+        return motion_files
+    
+    num_files = len(motion_files)
+    
+    # Ensure we have enough files for all GPUs
+    if num_files < world_size:
+        raise ValueError(
+            f"Not enough motion files ({num_files}) for {world_size} GPUs. "
+            f"Each GPU needs at least 1 file. Consider using fewer GPUs or adding more motion files."
+        )
+    
+    # Calculate shard size (round up to ensure all files are distributed)
+    shard_size = (num_files + world_size - 1) // world_size  # Ceiling division
+    
+    # Calculate start and end indices for this rank
+    start_idx = rank * shard_size
+    end_idx = min(start_idx + shard_size, num_files)
+    
+    # Get files for this rank
+    sharded_files = motion_files[start_idx:end_idx]
+    
+    # Log information about the sharding
+    print(
+        f"[RANK {rank}/{world_size-1}] Data sharding: "
+        f"assigned {len(sharded_files)}/{num_files} motion files "
+        f"(indices {start_idx}-{end_idx-1})"
+    )
+    if len(sharded_files) > 0:
+        print(f"[RANK {rank}] First file: {os.path.basename(sharded_files[0])}")
+        if len(sharded_files) > 1:
+            print(f"[RANK {rank}] Last file: {os.path.basename(sharded_files[-1])}")
+    
+    return sharded_files
+
+
 def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
   cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
   if cuda_visible == "":
     device = "cpu"
     seed = cfg.agent.seed
     rank = 0
+    world_size = 1
   else:
     local_rank = int(os.environ.get("LOCAL_RANK", "0"))
     rank = int(os.environ.get("RANK", "0"))
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
     # Set EGL device to match the CUDA device.
     os.environ["MUJOCO_EGL_DEVICE_ID"] = str(local_rank)
     device = f"cuda:{local_rank}"
@@ -99,7 +154,7 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
   cfg.agent.seed = seed
   cfg.env.seed = seed
 
-  print(f"[INFO] Training with: device={device}, seed={seed}, rank={rank}")
+  print(f"[INFO] Training with: device={device}, seed={seed}, rank={rank}, world_size={world_size}")
 
   registry_name: str | None = None
 
@@ -114,8 +169,11 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
 
     # Check if motion_file is already set (e.g., via CLI --env.commands.motion.motion-file).
     if motion_cmd.motion_path and Path(motion_cmd.motion_path).exists():
-      print(f"[INFO] Using local motion path: {motion_cmd.motion_path}")
-      motion_cmd.motion_files = get_data10K_motion_files(motion_cmd.motion_path)
+      print(f"[RANK {rank}] Using local motion path: {motion_cmd.motion_path}")
+      # Get all motion files first
+      all_motion_files = get_data10K_motion_files(motion_cmd.motion_path)
+      # Shard files across GPUs to reduce memory usage
+      motion_cmd.motion_files = shard_motion_files(all_motion_files, rank, world_size)
 
     elif cfg.registry_name:
       # Download from WandB registry.
@@ -127,6 +185,10 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
       api = wandb.Api()
       artifact = api.artifact(registry_name)
       motion_cmd.motion_path = str(Path(artifact.download()) / "motion.npz")
+      # For WandB artifacts, if it's a directory, shard the files
+      if os.path.isdir(motion_cmd.motion_path):
+        all_motion_files = get_data10K_motion_files(motion_cmd.motion_path)
+        motion_cmd.motion_files = shard_motion_files(all_motion_files, rank, world_size)
 
 
     else:
