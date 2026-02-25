@@ -166,15 +166,22 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
   if is_multi_tracking_task:
     motion_cmd = cfg.env.commands["motion"]
     assert isinstance(motion_cmd, MultiMotionCommandCfg)
-
-    # Check if motion_file is already set (e.g., via CLI --env.commands.motion.motion-file).
-    if motion_cmd.motion_path and Path(motion_cmd.motion_path).exists():
+    # Priority 1: If motion_path is set and exists, get files from path and shard
+    # (This takes priority to ensure we get the complete file list from the source)
+    if motion_cmd.motion_path and motion_cmd.motion_path.strip() and Path(motion_cmd.motion_path).exists():
       print(f"[RANK {rank}] Using local motion path: {motion_cmd.motion_path}")
-      # Get all motion files first
+      # Get all motion files first from the path
       all_motion_files = get_data10K_motion_files(motion_cmd.motion_path)
       # Shard files across GPUs to reduce memory usage
       motion_cmd.motion_files = shard_motion_files(all_motion_files, rank, world_size)
+    
+    # Priority 2: If motion_files are already set (via CLI or config), shard them
+    # (Only used when motion_path is not set)
+    elif motion_cmd.motion_files and len(motion_cmd.motion_files) > 0:
+      print(f"[RANK {rank}] Motion files already set, sharding {len(motion_cmd.motion_files)} files across {world_size} GPUs")
+      motion_cmd.motion_files = shard_motion_files(motion_cmd.motion_files, rank, world_size)
 
+    # Priority 3: Download from WandB registry
     elif cfg.registry_name:
       # Download from WandB registry.
       registry_name = cast(str, cfg.registry_name)
@@ -189,13 +196,14 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
       if os.path.isdir(motion_cmd.motion_path):
         all_motion_files = get_data10K_motion_files(motion_cmd.motion_path)
         motion_cmd.motion_files = shard_motion_files(all_motion_files, rank, world_size)
-
+  
 
     else:
       raise ValueError(
         "For tracking tasks, provide either:\n"
         "  --registry-name your-org/motions/motion-name (download from WandB)\n"
-        "  --env.commands.motion.motion-file /path/to/motion.npz (local file)"
+        "  --env.commands.motion.motion-path /path/to/motion/directory (local directory)\n"
+        "  --env.commands.motion.motion-files /path/to/file1.npz /path/to/file2.npz ... (list of files)"
       )
 
   # Enable NaN guard if requested.
