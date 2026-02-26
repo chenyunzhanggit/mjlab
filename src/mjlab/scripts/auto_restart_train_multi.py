@@ -155,7 +155,7 @@ class TrainingMonitor:
             cmd.extend([
                 "--agent.resume", "True",
                 "--agent.load-run", run_dir_name,
-                "--agent.load-checkpoint", ".*",  # Use regex to get latest
+                # "--agent.load-checkpoint", ".*",  # Use regex to get latest
             ])
             
             print(f"[MONITOR] Restarting with checkpoint from run: {run_dir_name}")

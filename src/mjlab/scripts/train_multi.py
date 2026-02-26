@@ -68,10 +68,21 @@ def get_data10K_motion_files(motion_path: str, recursive: bool = True) -> list[s
         motion_files.sort()  # 排序确保一致性
         
         print(f"在 {motion_path} 中找到 {len(motion_files)} 个motion文件{'（包含子目录）' if recursive else ''}")
-        for file in motion_files:
+        # Only print first few files to avoid log spam (especially in multi-GPU training)
+        max_print = 5
+        for i, file in enumerate(motion_files[:max_print]):
             # 显示相对路径，更清晰
             rel_path = os.path.relpath(file, motion_path)
             print(f" - {rel_path}")
+        if len(motion_files) > max_print:
+            print(f" - ... 还有 {len(motion_files) - max_print} 个文件未显示")
+        
+        # Verify no duplicates
+        unique_files = len(set(motion_files))
+        if unique_files != len(motion_files):
+            print(f"警告: 发现 {len(motion_files) - unique_files} 个重复文件！")
+        else:
+            print(f"验证: 所有 {len(motion_files)} 个文件都是唯一的")
         
         return motion_files
     
@@ -125,9 +136,34 @@ def shard_motion_files(motion_files: list[str], rank: int, world_size: int) -> l
         f"(indices {start_idx}-{end_idx-1})"
     )
     if len(sharded_files) > 0:
-        print(f"[RANK {rank}] First file: {os.path.basename(sharded_files[0])}")
+        # Show full path or relative path to make it clear files are different
+        first_file = sharded_files[0]
+        # Try to show relative path if possible
+        try:
+            # Find common base directory
+            common_base = os.path.commonpath(sharded_files) if len(sharded_files) > 1 else os.path.dirname(first_file)
+            rel_first = os.path.relpath(first_file, common_base)
+            print(f"[RANK {rank}] First file: {rel_first} (full: {first_file})")
+        except (ValueError, OSError):
+            # If paths are on different drives or can't compute common path, show full path
+            print(f"[RANK {rank}] First file (full path): {first_file}")
+        
         if len(sharded_files) > 1:
-            print(f"[RANK {rank}] Last file: {os.path.basename(sharded_files[-1])}")
+            last_file = sharded_files[-1]
+            try:
+                common_base = os.path.commonpath(sharded_files)
+                rel_last = os.path.relpath(last_file, common_base)
+                print(f"[RANK {rank}] Last file: {rel_last} (full: {last_file})")
+            except (ValueError, OSError):
+                print(f"[RANK {rank}] Last file (full path): {last_file}")
+        
+        # Verify files are actually different
+        if len(sharded_files) > 1:
+            unique_files = len(set(sharded_files))
+            if unique_files != len(sharded_files):
+                print(f"[RANK {rank}] WARNING: Found {len(sharded_files) - unique_files} duplicate files in shard!")
+            else:
+                print(f"[RANK {rank}] Verified: All {len(sharded_files)} files are unique")
     
     return sharded_files
 
