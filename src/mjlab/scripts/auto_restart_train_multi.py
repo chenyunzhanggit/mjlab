@@ -37,8 +37,7 @@ from datetime import datetime
 # Script is in src/mjlab/scripts/
 script_path = Path(__file__).resolve()
 project_root = script_path.parent.parent.parent
-print(f"project_root: {project_root}")
-TRAIN_SCRIPT = project_root / "mjlab" / "scripts" / "train_multi.py"
+TRAIN_SCRIPT = project_root / "src" / "mjlab" / "scripts" / "train_multi.py"
 sys.path.insert(0, str(project_root / "src"))
 
 from mjlab.utils.os import get_checkpoint_path
@@ -65,6 +64,7 @@ class TrainingMonitor:
         self.restart_count = 0
         self.process: Optional[subprocess.Popen] = None
         self.original_run_name: Optional[str] = None
+        self.is_first_run = True  # Track if this is the first run (not a restart)
         
     def find_latest_checkpoint(self) -> Optional[tuple[Path, str]]:
         """Find the latest checkpoint and its run directory.
@@ -166,7 +166,13 @@ class TrainingMonitor:
     
     def run_training(self) -> int:
         """Run training and return exit code."""
-        checkpoint_info = self.find_latest_checkpoint()
+        # Only look for checkpoint if this is a restart (not first run)
+        checkpoint_info = None
+        if not self.is_first_run:
+            checkpoint_info = self.find_latest_checkpoint()
+        else:
+            print(f"[MONITOR] First run: starting fresh training (no checkpoint resume)")
+        
         cmd = self.build_restart_command(checkpoint_info)
 
         print(f"[MONITOR] Resume checkpoint_info: {checkpoint_info}")
@@ -250,6 +256,7 @@ class TrainingMonitor:
                 break
             
             self.restart_count += 1
+            self.is_first_run = False  # Mark that this is now a restart
             print(f"\n[MONITOR] Waiting {self.restart_delay} seconds before restart...")
             time.sleep(self.restart_delay)
             print(f"[MONITOR] Restarting training (attempt {self.restart_count})...\n")
