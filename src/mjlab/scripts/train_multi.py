@@ -168,6 +168,61 @@ def shard_motion_files(motion_files: list[str], rank: int, world_size: int) -> l
     return sharded_files
 
 
+def _print_rank_files(sharded_files: list[str], rank: int, world_size: int, base_path: str | None = None) -> None:
+    """Print detailed file information for a specific rank.
+    
+    Args:
+        sharded_files: List of files assigned to this rank
+        rank: Current rank
+        world_size: Total number of ranks
+        base_path: Base path for computing relative paths (optional)
+    """
+    if len(sharded_files) == 0:
+        print(f"[RANK {rank}/{world_size-1}] WARNING: No files assigned to this rank!")
+        return
+    
+    print(f"\n{'='*80}")
+    print(f"[RANK {rank}/{world_size-1}] ASSIGNED FILES DETAIL:")
+    print(f"[RANK {rank}] Total files assigned: {len(sharded_files)}")
+    print(f"{'='*80}")
+    
+    # Print first few files
+    num_to_show = min(5, len(sharded_files))
+    print(f"[RANK {rank}] First {num_to_show} files:")
+    for i, file_path in enumerate(sharded_files[:num_to_show]):
+        if base_path:
+            try:
+                rel_path = os.path.relpath(file_path, base_path)
+                print(f"  [{i}] {rel_path}")
+            except (ValueError, OSError):
+                print(f"  [{i}] {file_path}")
+        else:
+            print(f"  [{i}] {file_path}")
+    
+    # Print last few files if there are more than what we showed
+    if len(sharded_files) > num_to_show:
+        print(f"[RANK {rank}] ... (skipping {len(sharded_files) - 2*num_to_show} files) ...")
+        print(f"[RANK {rank}] Last {num_to_show} files:")
+        for i, file_path in enumerate(sharded_files[-num_to_show:], start=len(sharded_files)-num_to_show):
+            if base_path:
+                try:
+                    rel_path = os.path.relpath(file_path, base_path)
+                    print(f"  [{i}] {rel_path}")
+                except (ValueError, OSError):
+                    print(f"  [{i}] {file_path}")
+            else:
+                print(f"  [{i}] {file_path}")
+    
+    # Verify uniqueness
+    unique_count = len(set(sharded_files))
+    if unique_count != len(sharded_files):
+        print(f"[RANK {rank}] ⚠️  WARNING: Found {len(sharded_files) - unique_count} duplicate files!")
+    else:
+        print(f"[RANK {rank}] ✓ Verified: All {len(sharded_files)} files are unique")
+    
+    print(f"{'='*80}\n")
+
+
 def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
   cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
   if cuda_visible == "":
@@ -205,17 +260,27 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
     # Priority 1: If motion_path is set and exists, get files from path and shard
     # (This takes priority to ensure we get the complete file list from the source)
     if motion_cmd.motion_path and motion_cmd.motion_path.strip() and Path(motion_cmd.motion_path).exists():
-      print(f"[RANK {rank}] Using local motion path: {motion_cmd.motion_path}")
-      # Get all motion files first from the path
-      all_motion_files = get_data10K_motion_files(motion_cmd.motion_path)
+      print(f"[RANK {rank}/{world_size-1}] Using local motion path: {motion_cmd.motion_path}")
+      # Get all motion files first from the path (only rank 0 prints full list to avoid spam)
+      if rank == 0:
+        all_motion_files = get_data10K_motion_files(motion_cmd.motion_path)
+      else:
+        # Other ranks also need to get the full list for sharding
+        all_motion_files = get_data10K_motion_files(motion_cmd.motion_path)
+        # Suppress the detailed file listing for non-rank-0 processes
+        pass
       # Shard files across GPUs to reduce memory usage
       motion_cmd.motion_files = shard_motion_files(all_motion_files, rank, world_size)
+      # Print detailed file list for this rank
+      _print_rank_files(motion_cmd.motion_files, rank, world_size, motion_cmd.motion_path)
     
     # Priority 2: If motion_files are already set (via CLI or config), shard them
     # (Only used when motion_path is not set)
     elif motion_cmd.motion_files and len(motion_cmd.motion_files) > 0:
-      print(f"[RANK {rank}] Motion files already set, sharding {len(motion_cmd.motion_files)} files across {world_size} GPUs")
+      print(f"[RANK {rank}/{world_size-1}] Motion files already set, sharding {len(motion_cmd.motion_files)} files across {world_size} GPUs")
       motion_cmd.motion_files = shard_motion_files(motion_cmd.motion_files, rank, world_size)
+      # Print detailed file list for this rank
+      _print_rank_files(motion_cmd.motion_files, rank, world_size, None)
 
     # Priority 3: Download from WandB registry
     elif cfg.registry_name:
@@ -232,6 +297,9 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
       if os.path.isdir(motion_cmd.motion_path):
         all_motion_files = get_data10K_motion_files(motion_cmd.motion_path)
         motion_cmd.motion_files = shard_motion_files(all_motion_files, rank, world_size)
+        # Print detailed file list for this rank
+        _print_rank_files(motion_cmd.motion_files, rank, world_size, motion_cmd.motion_path)
+     
   
 
     else:
