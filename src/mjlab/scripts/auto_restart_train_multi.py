@@ -37,7 +37,7 @@ from datetime import datetime
 # Script is in src/mjlab/scripts/
 script_path = Path(__file__).resolve()
 project_root = script_path.parent.parent.parent
-TRAIN_SCRIPT = project_root / "src" / "mjlab" / "scripts" / "train_multi.py"
+TRAIN_SCRIPT = project_root / "mjlab" / "scripts" / "train_multi.py"
 sys.path.insert(0, str(project_root / "src"))
 
 from mjlab.utils.os import get_checkpoint_path
