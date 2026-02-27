@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
 
-from mjlab.envs import ManagerBasedRlEnv, ManagerBasedRlEnvCfg, types
-from mjlab.envs.manager_based_rl_env import cast
+import mjlab.envs.types as types
+from mjlab.envs.manager_based_rl_env import ManagerBasedRlEnv, ManagerBasedRlEnvCfg
 from mjlab.managers.command_manager import CommandManager
 
 
