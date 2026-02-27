@@ -39,7 +39,6 @@ def unitree_g1_tracking_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
   )
 
 
-
 def unitree_g1_teleoperation_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
   """Create RL runner configuration for Unitree G1 tracking task."""
   return RslRlOnPolicyRunnerCfg(
@@ -48,8 +47,8 @@ def unitree_g1_teleoperation_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
       init_noise_std=1.0,
       actor_obs_normalization=True,
       critic_obs_normalization=True,
-      actor_hidden_dims=(2048, 2048, 1024, 1024, 512 ,512),
-      critic_hidden_dims=(2048, 2048, 1024, 1024, 512 ,512),
+      actor_hidden_dims=(2048, 2048, 1024, 1024, 512, 512),
+      critic_hidden_dims=(2048, 2048, 1024, 1024, 512, 512),
       activation="elu",
     ),
     algorithm=RslRlPpoAlgorithmCfg(
@@ -58,7 +57,7 @@ def unitree_g1_teleoperation_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
       clip_param=0.2,
       entropy_coef=0.013,
       num_learning_epochs=5,
-      num_mini_batches=4, 
+      num_mini_batches=4,
       learning_rate=2.0e-4,
       schedule="adaptive",
       gamma=0.99,
@@ -68,6 +67,6 @@ def unitree_g1_teleoperation_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     ),
     experiment_name="g1_teleoperation",
     save_interval=500,
-    num_steps_per_env=24, 
+    num_steps_per_env=24,
     max_iterations=100_000,
   )

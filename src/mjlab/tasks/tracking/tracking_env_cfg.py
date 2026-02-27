@@ -9,6 +9,8 @@ Based on https://github.com/HybridRobotics/whole_body_tracking
 Commit: f8e20c880d9c8ec7172a13d3a88a65e3a5a88448
 """
 
+import math
+
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs.mdp.actions import JointPositionActionCfg
 from mjlab.managers.action_manager import ActionTermCfg
@@ -25,8 +27,6 @@ from mjlab.tasks.tracking.mdp import MotionCommandCfg, MultiMotionCommandCfg
 from mjlab.terrains import TerrainImporterCfg
 from mjlab.utils.noise import UniformNoiseCfg as Unoise
 from mjlab.viewer import ViewerConfig
-
-import math
 
 VELOCITY_RANGE = {
   "x": (-0.5, 0.5),
@@ -317,18 +317,13 @@ def make_tracking_env_cfg() -> ManagerBasedRlEnvCfg:
   )
 
 
-
-
-
-
-
 def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
   """Create base teleoperation task configuration."""
 
   ##
   # Commands (defined early to access future_steps and history_steps)
   ##
-  
+
   motion_cmd_cfg = MultiMotionCommandCfg(
     entity_name="robot",
     resampling_time_range=(1.0e9, 1.0e9),
@@ -343,25 +338,24 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
     },
     velocity_range=VELOCITY_RANGE,
     joint_position_range=(-0.1, 0.1),
-
     motion_path="",
     anchor_body_name="",
     body_names=(),
     fall_recovery_ratio=0.15,
     fall_recovery_pose_range={
-        "roll": (-math.pi / 2.0, math.pi / 2.0),   # roll 范围
-        "pitch": (math.pi / 2.0 - 0.1, math.pi / 2.0 + 0.1), 
-        "yaw": (-math.pi, math.pi),  # 保持原始yaw
+      "roll": (-math.pi / 2.0, math.pi / 2.0),  # roll 范围
+      "pitch": (math.pi / 2.0 - 0.1, math.pi / 2.0 + 0.1),
+      "yaw": (-math.pi, math.pi),  # 保持原始yaw
     },
     fall_recovery_joint_position_range=(-0.3, 0.3),  # 关节角度噪声
     fall_recovery_joint_velocity_range=(-0.1, 0.1),  # 关节速度噪声
     fall_recovery_velocity_range={
-        "x": (-0.15, 0.15),
-        "y": (-0.15, 0.15),
-        "z": (-0.15, 0.15),
-        "roll": (-0.52, 0.52),
-        "pitch": (-0.52, 0.52),
-        "yaw": (-0.78, 0.78),
+      "x": (-0.15, 0.15),
+      "y": (-0.15, 0.15),
+      "z": (-0.15, 0.15),
+      "roll": (-0.52, 0.52),
+      "pitch": (-0.52, 0.52),
+      "yaw": (-0.78, 0.78),
     },
   )
   num_ref_motion_time_steps = motion_cmd_cfg.history_steps + motion_cmd_cfg.future_steps
@@ -372,21 +366,22 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
 
   policy_terms = {
     # """ ref cmd add history & future steps 5 frames? """
-    # ref joint pos 
+    # ref joint pos
     "commands_joint_pos_only": ObservationTermCfg(
-      func=mdp.generated_commands_joint_pos, params={"command_name": "motion"},
+      func=mdp.generated_commands_joint_pos,
+      params={"command_name": "motion"},
       noise=Unoise(n_min=-0.1, n_max=0.1),
     ),
-    # ref anchor vel 
+    # ref anchor vel
     "motion_anchor_vel_w": ObservationTermCfg(
       func=mdp.motion_anchor_vel_w,
       params={"command_name": "motion"},
       noise=Unoise(
-        n_min=(-0.5, -0.5, -0.2) * num_ref_motion_time_steps, 
+        n_min=(-0.5, -0.5, -0.2) * num_ref_motion_time_steps,
         n_max=(0.5, 0.5, 0.2) * num_ref_motion_time_steps,
       ),
     ),
-    # ref anchor ori  OR ref projected_gravity? 
+    # ref anchor ori  OR ref projected_gravity?
     "motion_anchor_projected_gravity": ObservationTermCfg(
       func=mdp.motion_anchor_projected_gravity,
       params={"command_name": "motion"},
@@ -401,7 +396,6 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
         n_max=(0.52, 0.52, 0.78) * num_ref_motion_time_steps,
       ),
     ),
-    
     # """ proprioceptive observations add history steps 5 frames? """
     # proprioceptive observations
     "projected_gravity": ObservationTermCfg(
@@ -422,11 +416,13 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
       history_length=5,
     ),
     "joint_vel": ObservationTermCfg(
-      func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5),
+      func=mdp.joint_vel_rel,
+      noise=Unoise(n_min=-1.5, n_max=1.5),
       history_length=5,
     ),
-    "actions": ObservationTermCfg(func=mdp.last_action, 
-    history_length=5,
+    "actions": ObservationTermCfg(
+      func=mdp.last_action,
+      history_length=5,
     ),
   }
 
@@ -576,7 +572,7 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
       weight=1.0,
       params={"command_name": "motion", "std": 3.14},
     ),
-    "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-1e-1), 
+    "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-1e-1),
     "joint_limit": RewardTermCfg(
       func=mdp.joint_pos_limits,
       weight=-10.0,
@@ -587,7 +583,6 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
       weight=-10.0,
       params={"sensor_name": "self_collision"},
     ),
-
     "motion_global_anchor_height_error_exp_fall_recovery": RewardTermCfg(
       func=mdp.motion_global_anchor_height_error_exp_fall_recovery,
       weight=2.0,

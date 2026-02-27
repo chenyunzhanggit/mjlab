@@ -8,7 +8,6 @@ from mjlab.rl.runner import MjlabOnPolicyRunner
 from mjlab.tasks.tracking.rl.exporter import (
   attach_onnx_metadata,
   export_policy_as_onnx,
-  export_motion_policy_as_onnx,
 )
 
 

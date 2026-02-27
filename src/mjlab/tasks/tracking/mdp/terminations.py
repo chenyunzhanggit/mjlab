@@ -87,8 +87,6 @@ def bad_motion_body_pos_z_only(
   return torch.any(error > threshold, dim=-1)
 
 
-
-
 def bad_anchor_ori_fall_recovery(
   env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg, command_name: str, threshold: float
 ) -> torch.Tensor:
@@ -144,7 +142,7 @@ def bad_motion_body_pos_z_only_fall_recovery(
       fall_recovery_protected = fall_recovery_mask & (current_steps < 150)
       # Set termination to False for protected fall recovery environments
       termination_mask = termination_mask & ~fall_recovery_protected
-  
+
   return termination_mask
 
 
@@ -167,5 +165,5 @@ def bad_anchor_pos_z_only_fall_recovery(
       fall_recovery_protected = fall_recovery_mask & (current_steps < 150)
       # Set termination to False for protected fall recovery environments
       termination_mask = termination_mask & ~fall_recovery_protected
-  
+
   return termination_mask

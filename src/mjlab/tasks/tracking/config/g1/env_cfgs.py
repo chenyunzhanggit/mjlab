@@ -9,7 +9,10 @@ from mjlab.envs.mdp.actions import JointPositionActionCfg
 from mjlab.managers.observation_manager import ObservationGroupCfg
 from mjlab.sensor import ContactMatch, ContactSensorCfg
 from mjlab.tasks.tracking.mdp import MotionCommandCfg, MultiMotionCommandCfg
-from mjlab.tasks.tracking.tracking_env_cfg import make_tracking_env_cfg, make_teleoperation_env_cfg
+from mjlab.tasks.tracking.tracking_env_cfg import (
+  make_teleoperation_env_cfg,
+  make_tracking_env_cfg,
+)
 
 
 def unitree_g1_flat_tracking_env_cfg(
@@ -99,7 +102,6 @@ def unitree_g1_flat_tracking_env_cfg(
   return cfg
 
 
-
 def unitree_g1_teleoperation_env_cfg(
   has_state_estimation: bool = True,
   play: bool = False,
@@ -124,7 +126,7 @@ def unitree_g1_teleoperation_env_cfg(
   joint_pos_action.scale = G1_ACTION_SCALE
 
   motion_cmd = cfg.commands["motion"]
-  
+
   assert isinstance(motion_cmd, MultiMotionCommandCfg)
   motion_cmd.anchor_body_name = "torso_link"
   motion_cmd.body_names = (
@@ -168,7 +170,7 @@ def unitree_g1_teleoperation_env_cfg(
     cfg.observations["policy"] = ObservationGroupCfg(
       terms=new_policy_terms,
       concatenate_terms=True,
-    enable_corruption=True,
+      enable_corruption=True,
     )
 
   # Apply play mode overrides.
@@ -186,4 +188,3 @@ def unitree_g1_teleoperation_env_cfg(
     motion_cmd.sampling_mode = "start"
 
   return cfg
-

@@ -113,26 +113,28 @@ def motion_global_body_angular_velocity_error_exp(
   )
   return torch.exp(-error.mean(-1) / std**2)
 
+
 def motion_global_anchor_height_error_exp_fall_recovery(
   env: ManagerBasedRlEnv, command_name: str, std: float
 ) -> torch.Tensor:
   command = cast(MotionCommand, env.command_manager.get_term(command_name))
-  
+
   # Initialize reward to zero for all environments
   num_envs = command.anchor_pos_w.shape[0]
   reward = torch.zeros(num_envs, device=command.anchor_pos_w.device)
-  
+
   if isinstance(command, MultiMotionCommand):
     fall_recovery_mask = getattr(command, "init_fall_recovery_mask", None)
     if fall_recovery_mask is not None:
-      actual_height = command.robot_anchor_pos_w[:, 2]  
-      target_height = command.anchor_pos_w[:, 2] 
+      actual_height = command.robot_anchor_pos_w[:, 2]
+      target_height = command.anchor_pos_w[:, 2]
       height_error = torch.square(target_height - actual_height)
-      
+
       fall_recovery_reward = torch.exp(-height_error / std**2)
       reward = torch.where(fall_recovery_mask, fall_recovery_reward, reward)
-  
+
   return reward
+
 
 def motion_global_anchor_orientation_error_exp_fall_recovery(
   env: ManagerBasedRlEnv, command_name: str, std: float

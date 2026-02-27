@@ -147,8 +147,10 @@ class BaseAction(ActionTerm):
     self._raw_actions[:] = actions
     # Use scale=1 if delta action mode is enabled
     if self._env.cfg.use_delta_action:
-      action_scale = 1.0 if isinstance(self._scale, (float, int)) else torch.ones_like(self._scale)
-      self._processed_actions = self._raw_actions * action_scale 
+      action_scale = (
+        1.0 if isinstance(self._scale, (float, int)) else torch.ones_like(self._scale)
+      )
+      self._processed_actions = self._raw_actions * action_scale
     else:
       action_scale = self._scale
       self._processed_actions = self._raw_actions * action_scale + self._offset

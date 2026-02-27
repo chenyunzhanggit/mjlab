@@ -3,6 +3,7 @@
 import glob
 import logging
 import os
+import random
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -11,10 +12,9 @@ from typing import Literal, cast
 
 import tyro
 
-from mjlab.envs import ManagerBasedRlEnv, ManagerBasedRlEnvCfg, CustomManagerBasedRlEnv
+from mjlab.envs import ManagerBasedRlEnv, ManagerBasedRlEnvCfg
 from mjlab.rl import MjlabOnPolicyRunner, RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper
 from mjlab.tasks.registry import list_tasks, load_env_cfg, load_rl_cfg, load_runner_cls
-from mjlab.tasks.tracking.mdp import MotionCommandCfg
 from mjlab.tasks.tracking.mdp.multi_commands import MultiMotionCommandCfg
 from mjlab.utils.gpu import select_gpus
 from mjlab.utils.os import dump_yaml, get_checkpoint_path, get_wandb_checkpoint_path
@@ -45,187 +45,230 @@ class TrainConfig:
 
 
 def get_data10K_motion_files(motion_path: str, recursive: bool = True) -> list[str]:
-    if os.path.isfile(motion_path):
-        # 如果是单个文件，返回包含该文件的列表
-        if not motion_path.lower().endswith('.npz'):
-            print(f"警告: {motion_path} 不是.npz文件")
-        return [motion_path]
-    
-    elif os.path.isdir(motion_path):
-        if recursive:
-            # 递归搜索所有子目录中的.npz文件
-            pattern = os.path.join(motion_path, "**", "*.npz")
-            motion_files = glob.glob(pattern, recursive=True)
-        else:
-            # 只搜索当前目录（原行为）
-            motion_files = glob.glob(os.path.join(motion_path, "*.npz"))
-        
-        if not motion_files:
-            raise ValueError(f"在目录中未找到.npz文件: {motion_path}")
-        
-        # 过滤掉目录（确保只返回文件）
-        motion_files = [f for f in motion_files if os.path.isfile(f)]
-        motion_files.sort()  # 排序确保一致性
-        
-        # Get rank from environment if available (for multi-GPU training)
-        rank = int(os.environ.get("RANK", "0"))
-        world_size = int(os.environ.get("WORLD_SIZE", "1"))
-        
-        print(f"[RANK {rank}/{world_size-1}] 在 {motion_path} 中找到 {len(motion_files)} 个motion文件{'（包含子目录）' if recursive else ''}", flush=True)
-        # Only print first few files to avoid log spam (especially in multi-GPU training)
-        max_print = 5
-        for i, file in enumerate(motion_files[:max_print]):
-            # 显示相对路径，更清晰
-            rel_path = os.path.relpath(file, motion_path)
-            print(f"[RANK {rank}]  - {rel_path}", flush=True)
-        if len(motion_files) > max_print:
-            print(f"[RANK {rank}]  - ... 还有 {len(motion_files) - max_print} 个文件未显示", flush=True)
-        
-        # Verify no duplicates
-        unique_files = len(set(motion_files))
-        if unique_files != len(motion_files):
-            print(f"[RANK {rank}] 警告: 发现 {len(motion_files) - unique_files} 个重复文件！", flush=True)
-        else:
-            print(f"[RANK {rank}] 验证: 所有 {len(motion_files)} 个文件都是唯一的", flush=True)
-        
-        return motion_files
-    
+  if os.path.isfile(motion_path):
+    # 如果是单个文件，返回包含该文件的列表
+    if not motion_path.lower().endswith(".npz"):
+      print(f"警告: {motion_path} 不是.npz文件")
+    return [motion_path]
+
+  elif os.path.isdir(motion_path):
+    if recursive:
+      # 递归搜索所有子目录中的.npz文件
+      pattern = os.path.join(motion_path, "**", "*.npz")
+      motion_files = glob.glob(pattern, recursive=True)
     else:
-        raise ValueError(f"无效路径: {motion_path}。必须是文件或目录。")
+      # 只搜索当前目录（原行为）
+      motion_files = glob.glob(os.path.join(motion_path, "*.npz"))
 
+    if not motion_files:
+      raise ValueError(f"在目录中未找到.npz文件: {motion_path}")
 
-def shard_motion_files(motion_files: list[str], rank: int, world_size: int) -> list[str]:
-    """Shard motion files across multiple GPUs to reduce memory usage.
-    
-    Each GPU will only load a subset of the motion files, reducing memory/VRAM usage.
-    This is especially useful when training with large datasets.
-    
-    Args:
-        motion_files: List of all motion file paths
-        rank: Current process rank (0 to world_size-1)
-        world_size: Total number of processes/GPUs
-        
-    Returns:
-        List of motion files assigned to this rank
-        
-    Raises:
-        ValueError: If world_size > num_files (not enough files for all GPUs)
-    """
-    if world_size <= 1:
-        return motion_files
-    
-    num_files = len(motion_files)
-    
-    # Ensure we have enough files for all GPUs
-    if num_files < world_size:
-        raise ValueError(
-            f"Not enough motion files ({num_files}) for {world_size} GPUs. "
-            f"Each GPU needs at least 1 file. Consider using fewer GPUs or adding more motion files."
-        )
-    
-    # Calculate shard size (round up to ensure all files are distributed)
-    shard_size = (num_files + world_size - 1) // world_size  # Ceiling division
-    
-    # Calculate start and end indices for this rank
-    start_idx = rank * shard_size
-    end_idx = min(start_idx + shard_size, num_files)
-    
-    # Get files for this rank
-    sharded_files = motion_files[start_idx:end_idx]
-    
-    # Log information about the sharding
+    # 过滤掉目录（确保只返回文件）
+    motion_files = [f for f in motion_files if os.path.isfile(f)]
+    motion_files.sort()  # 排序确保一致性
+
+    # Get rank from environment if available (for multi-GPU training)
+    rank = int(os.environ.get("RANK", "0"))
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+
     print(
-        f"[RANK {rank}/{world_size-1}] Data sharding: "
-        f"assigned {len(sharded_files)}/{num_files} motion files "
-        f"(indices {start_idx}-{end_idx-1})"
+      f"[RANK {rank}/{world_size - 1}] 在 {motion_path} 中找到 {len(motion_files)} 个motion文件{'（包含子目录）' if recursive else ''}",
+      flush=True,
     )
-    if len(sharded_files) > 0:
-        # Show full path or relative path to make it clear files are different
-        first_file = sharded_files[0]
-        # Try to show relative path if possible
-        try:
-            # Find common base directory
-            common_base = os.path.commonpath(sharded_files) if len(sharded_files) > 1 else os.path.dirname(first_file)
-            rel_first = os.path.relpath(first_file, common_base)
-            print(f"[RANK {rank}] First file: {rel_first} (full: {first_file})")
-        except (ValueError, OSError):
-            # If paths are on different drives or can't compute common path, show full path
-            print(f"[RANK {rank}] First file (full path): {first_file}")
-        
-        if len(sharded_files) > 1:
-            last_file = sharded_files[-1]
-            try:
-                common_base = os.path.commonpath(sharded_files)
-                rel_last = os.path.relpath(last_file, common_base)
-                print(f"[RANK {rank}] Last file: {rel_last} (full: {last_file})")
-            except (ValueError, OSError):
-                print(f"[RANK {rank}] Last file (full path): {last_file}")
-        
-        # Verify files are actually different
-        if len(sharded_files) > 1:
-            unique_files = len(set(sharded_files))
-            if unique_files != len(sharded_files):
-                print(f"[RANK {rank}] WARNING: Found {len(sharded_files) - unique_files} duplicate files in shard!")
-            else:
-                print(f"[RANK {rank}] Verified: All {len(sharded_files)} files are unique")
-    
-    return sharded_files
+    # Only print first few files to avoid log spam (especially in multi-GPU training)
+    max_print = 5
+    for i, file in enumerate(motion_files[:max_print]):  # noqa: B007
+      # 显示相对路径，更清晰
+      rel_path = os.path.relpath(file, motion_path)
+      print(f"[RANK {rank}]  - {rel_path}", flush=True)
+    if len(motion_files) > max_print:
+      print(
+        f"[RANK {rank}]  - ... 还有 {len(motion_files) - max_print} 个文件未显示",
+        flush=True,
+      )
 
-
-def _print_rank_files(sharded_files: list[str], rank: int, world_size: int, base_path: str | None = None) -> None:
-    """Print detailed file information for a specific rank.
-    
-    Args:
-        sharded_files: List of files assigned to this rank
-        rank: Current rank
-        world_size: Total number of ranks
-        base_path: Base path for computing relative paths (optional)
-    """
-    if len(sharded_files) == 0:
-        print(f"[RANK {rank}/{world_size-1}] WARNING: No files assigned to this rank!", flush=True)
-        return
-    
-    # Force flush to ensure output is visible in multi-GPU training
-    print(f"\n{'='*80}", flush=True)
-    print(f"[RANK {rank}/{world_size-1}] ASSIGNED FILES DETAIL:", flush=True)
-    print(f"[RANK {rank}] Total files assigned: {len(sharded_files)}", flush=True)
-    print(f"{'='*80}", flush=True)
-    
-    # Print first few files
-    num_to_show = min(5, len(sharded_files))
-    print(f"[RANK {rank}] First {num_to_show} files:", flush=True)
-    for i, file_path in enumerate(sharded_files[:num_to_show]):
-        if base_path:
-            try:
-                rel_path = os.path.relpath(file_path, base_path)
-                print(f"  [{i}] {rel_path}", flush=True)
-            except (ValueError, OSError):
-                print(f"  [{i}] {file_path}", flush=True)
-        else:
-            print(f"  [{i}] {file_path}", flush=True)
-    
-    # Print last few files if there are more than what we showed
-    if len(sharded_files) > num_to_show:
-        print(f"[RANK {rank}] ... (skipping {len(sharded_files) - 2*num_to_show} files) ...", flush=True)
-        print(f"[RANK {rank}] Last {num_to_show} files:", flush=True)
-        for i, file_path in enumerate(sharded_files[-num_to_show:], start=len(sharded_files)-num_to_show):
-            if base_path:
-                try:
-                    rel_path = os.path.relpath(file_path, base_path)
-                    print(f"  [{i}] {rel_path}", flush=True)
-                except (ValueError, OSError):
-                    print(f"  [{i}] {file_path}", flush=True)
-            else:
-                print(f"  [{i}] {file_path}", flush=True)
-    
-    # Verify uniqueness
-    unique_count = len(set(sharded_files))
-    if unique_count != len(sharded_files):
-        print(f"[RANK {rank}] ⚠️  WARNING: Found {len(sharded_files) - unique_count} duplicate files!", flush=True)
+    # Verify no duplicates
+    unique_files = len(set(motion_files))
+    if unique_files != len(motion_files):
+      print(
+        f"[RANK {rank}] 警告: 发现 {len(motion_files) - unique_files} 个重复文件！",
+        flush=True,
+      )
     else:
-        print(f"[RANK {rank}] ✓ Verified: All {len(sharded_files)} files are unique", flush=True)
-    
-    print(f"{'='*80}\n", flush=True)
+      print(
+        f"[RANK {rank}] 验证: 所有 {len(motion_files)} 个文件都是唯一的", flush=True
+      )
+
+    return motion_files
+
+  else:
+    raise ValueError(f"无效路径: {motion_path}。必须是文件或目录。")
+
+
+def shard_motion_files(
+  motion_files: list[str], rank: int, world_size: int, shuffle_seed: int = 42
+) -> list[str]:
+  """Shard motion files across multiple GPUs to reduce memory usage.
+
+  Each GPU will only load a subset of the motion files, reducing memory/VRAM usage.
+  This is especially useful when training with large datasets.
+
+  Files are shuffled with a fixed seed before sharding so that each GPU receives
+  a representative mix of motion types rather than a contiguous alphabetical slice.
+
+  Args:
+      motion_files: List of all motion file paths
+      rank: Current process rank (0 to world_size-1)
+      world_size: Total number of processes/GPUs
+      shuffle_seed: RNG seed for reproducible shuffling (same seed on all ranks)
+
+  Returns:
+      List of motion files assigned to this rank
+
+  Raises:
+      ValueError: If world_size > num_files (not enough files for all GPUs)
+  """
+  if world_size <= 1:
+    return motion_files
+
+  num_files = len(motion_files)
+
+  # Ensure we have enough files for all GPUs
+  if num_files < world_size:
+    raise ValueError(
+      f"Not enough motion files ({num_files}) for {world_size} GPUs. "
+      f"Each GPU needs at least 1 file. Consider using fewer GPUs or adding more motion files."
+    )
+
+  # Shuffle with a fixed seed so all ranks produce the same ordering,
+  # then slice by rank — each GPU gets a diverse mix instead of a sorted block.
+  shuffled = motion_files[:]
+  random.seed(shuffle_seed)
+  random.shuffle(shuffled)
+
+  # Calculate shard size (round up to ensure all files are distributed)
+  shard_size = (num_files + world_size - 1) // world_size  # Ceiling division
+
+  # Calculate start and end indices for this rank
+  start_idx = rank * shard_size
+  end_idx = min(start_idx + shard_size, num_files)
+
+  # Get files for this rank
+  sharded_files = shuffled[start_idx:end_idx]
+
+  # Log information about the sharding
+  print(
+    f"[RANK {rank}/{world_size - 1}] Data sharding: "
+    f"assigned {len(sharded_files)}/{num_files} motion files (shuffled, seed={shuffle_seed})"
+  )
+  if len(sharded_files) > 0:
+    # Show full path or relative path to make it clear files are different
+    first_file = sharded_files[0]
+    # Try to show relative path if possible
+    try:
+      # Find common base directory
+      common_base = (
+        os.path.commonpath(sharded_files)
+        if len(sharded_files) > 1
+        else os.path.dirname(first_file)
+      )
+      rel_first = os.path.relpath(first_file, common_base)
+      print(f"[RANK {rank}] First file: {rel_first} (full: {first_file})")
+    except (ValueError, OSError):
+      # If paths are on different drives or can't compute common path, show full path
+      print(f"[RANK {rank}] First file (full path): {first_file}")
+
+    if len(sharded_files) > 1:
+      last_file = sharded_files[-1]
+      try:
+        common_base = os.path.commonpath(sharded_files)
+        rel_last = os.path.relpath(last_file, common_base)
+        print(f"[RANK {rank}] Last file: {rel_last} (full: {last_file})")
+      except (ValueError, OSError):
+        print(f"[RANK {rank}] Last file (full path): {last_file}")
+
+    # Verify files are actually different
+    if len(sharded_files) > 1:
+      unique_files = len(set(sharded_files))
+      if unique_files != len(sharded_files):
+        print(
+          f"[RANK {rank}] WARNING: Found {len(sharded_files) - unique_files} duplicate files in shard!"
+        )
+      else:
+        print(f"[RANK {rank}] Verified: All {len(sharded_files)} files are unique")
+
+  return sharded_files
+
+
+def _print_rank_files(
+  sharded_files: list[str], rank: int, world_size: int, base_path: str | None = None
+) -> None:
+  """Print detailed file information for a specific rank.
+
+  Args:
+      sharded_files: List of files assigned to this rank
+      rank: Current rank
+      world_size: Total number of ranks
+      base_path: Base path for computing relative paths (optional)
+  """
+  if len(sharded_files) == 0:
+    print(
+      f"[RANK {rank}/{world_size - 1}] WARNING: No files assigned to this rank!",
+      flush=True,
+    )
+    return
+
+  # Force flush to ensure output is visible in multi-GPU training
+  print(f"\n{'=' * 80}", flush=True)
+  print(f"[RANK {rank}/{world_size - 1}] ASSIGNED FILES DETAIL:", flush=True)
+  print(f"[RANK {rank}] Total files assigned: {len(sharded_files)}", flush=True)
+  print(f"{'=' * 80}", flush=True)
+
+  # Print first few files
+  num_to_show = min(5, len(sharded_files))
+  print(f"[RANK {rank}] First {num_to_show} files:", flush=True)
+  for i, file_path in enumerate(sharded_files[:num_to_show]):
+    if base_path:
+      try:
+        rel_path = os.path.relpath(file_path, base_path)
+        print(f"  [{i}] {rel_path}", flush=True)
+      except (ValueError, OSError):
+        print(f"  [{i}] {file_path}", flush=True)
+    else:
+      print(f"  [{i}] {file_path}", flush=True)
+
+  # Print last few files if there are more than what we showed
+  if len(sharded_files) > num_to_show:
+    print(
+      f"[RANK {rank}] ... (skipping {len(sharded_files) - 2 * num_to_show} files) ...",
+      flush=True,
+    )
+    print(f"[RANK {rank}] Last {num_to_show} files:", flush=True)
+    for i, file_path in enumerate(
+      sharded_files[-num_to_show:], start=len(sharded_files) - num_to_show
+    ):
+      if base_path:
+        try:
+          rel_path = os.path.relpath(file_path, base_path)
+          print(f"  [{i}] {rel_path}", flush=True)
+        except (ValueError, OSError):
+          print(f"  [{i}] {file_path}", flush=True)
+      else:
+        print(f"  [{i}] {file_path}", flush=True)
+
+  # Verify uniqueness
+  unique_count = len(set(sharded_files))
+  if unique_count != len(sharded_files):
+    print(
+      f"[RANK {rank}] ⚠️  WARNING: Found {len(sharded_files) - unique_count} duplicate files!",
+      flush=True,
+    )
+  else:
+    print(
+      f"[RANK {rank}] ✓ Verified: All {len(sharded_files)} files are unique", flush=True
+    )
+
+  print(f"{'=' * 80}\n", flush=True)
 
 
 def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
@@ -250,7 +293,9 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
   cfg.agent.seed = seed
   cfg.env.seed = seed
 
-  print(f"[INFO] Training with: device={device}, seed={seed}, rank={rank}, world_size={world_size}")
+  print(
+    f"[INFO] Training with: device={device}, seed={seed}, rank={rank}, world_size={world_size}"
+  )
 
   registry_name: str | None = None
 
@@ -264,22 +309,38 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
     assert isinstance(motion_cmd, MultiMotionCommandCfg)
     # Priority 1: If motion_path is set and exists, get files from path and shard
     # (This takes priority to ensure we get the complete file list from the source)
-    if motion_cmd.motion_path and motion_cmd.motion_path.strip() and Path(motion_cmd.motion_path).exists():
-      print(f"[RANK {rank}/{world_size-1}] Using local motion path: {motion_cmd.motion_path}", flush=True)
+    if (
+      motion_cmd.motion_path
+      and motion_cmd.motion_path.strip()
+      and Path(motion_cmd.motion_path).exists()
+    ):
+      print(
+        f"[RANK {rank}/{world_size - 1}] Using local motion path: {motion_cmd.motion_path}",
+        flush=True,
+      )
       # Get all motion files first from the path
       # All ranks need the full list for sharding, but only rank 0 prints the full discovery log
       all_motion_files = get_data10K_motion_files(motion_cmd.motion_path)
       # Shard files across GPUs to reduce memory usage
       motion_cmd.motion_files = shard_motion_files(all_motion_files, rank, world_size)
       # Print detailed file list for this rank (all ranks print their own assignment)
-      print(f"[RANK {rank}/{world_size-1}] ========== FILE ASSIGNMENT FOR RANK {rank} ==========", flush=True)
-      _print_rank_files(motion_cmd.motion_files, rank, world_size, motion_cmd.motion_path)
-    
+      print(
+        f"[RANK {rank}/{world_size - 1}] ========== FILE ASSIGNMENT FOR RANK {rank} ==========",
+        flush=True,
+      )
+      _print_rank_files(
+        motion_cmd.motion_files, rank, world_size, motion_cmd.motion_path
+      )
+
     # Priority 2: If motion_files are already set (via CLI or config), shard them
     # (Only used when motion_path is not set)
     elif motion_cmd.motion_files and len(motion_cmd.motion_files) > 0:
-      print(f"[RANK {rank}/{world_size-1}] Motion files already set, sharding {len(motion_cmd.motion_files)} files across {world_size} GPUs")
-      motion_cmd.motion_files = shard_motion_files(motion_cmd.motion_files, rank, world_size)
+      print(
+        f"[RANK {rank}/{world_size - 1}] Motion files already set, sharding {len(motion_cmd.motion_files)} files across {world_size} GPUs"
+      )
+      motion_cmd.motion_files = shard_motion_files(
+        motion_cmd.motion_files, rank, world_size
+      )
       # Print detailed file list for this rank
       _print_rank_files(motion_cmd.motion_files, rank, world_size, None)
 
@@ -299,9 +360,9 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
         all_motion_files = get_data10K_motion_files(motion_cmd.motion_path)
         motion_cmd.motion_files = shard_motion_files(all_motion_files, rank, world_size)
         # Print detailed file list for this rank
-        _print_rank_files(motion_cmd.motion_files, rank, world_size, motion_cmd.motion_path)
-     
-  
+        _print_rank_files(
+          motion_cmd.motion_files, rank, world_size, motion_cmd.motion_path
+        )
 
     else:
       raise ValueError(
@@ -319,13 +380,13 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
   if rank == 0:
     print(f"[INFO] Logging experiment in directory: {log_dir}")
 
-#   use_custom_env = True  # Set to False to use default ManagerBasedRlEnv
-  
-#   if use_custom_env:
-#     env = CustomManagerBasedRlEnv(
-#       cfg=cfg.env, device=device, render_mode="rgb_array" if cfg.video else None
-#     )
-#   else:
+  #   use_custom_env = True  # Set to False to use default ManagerBasedRlEnv
+
+  #   if use_custom_env:
+  #     env = CustomManagerBasedRlEnv(
+  #       cfg=cfg.env, device=device, render_mode="rgb_array" if cfg.video else None
+  #     )
+  #   else:
   env = ManagerBasedRlEnv(
     cfg=cfg.env, device=device, render_mode="rgb_array" if cfg.video else None
   )

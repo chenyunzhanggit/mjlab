@@ -314,7 +314,7 @@ class ManagerBasedRlEnv:
     avg_height_diff: float,
   ) -> None:
     """Update the max pull force curriculum based on average height difference.
-    
+
     Args:
       avg_height_diff: Average height difference between target and actual height
         for fall recovery environments.
@@ -334,7 +334,7 @@ class ManagerBasedRlEnv:
         # If average height difference < 0.3, continue reducing by 0.99
         # No lower limit after this point
         self.max_pull_force = self.max_pull_force * 0.998
-    
+
     # Log max_pull_force to extras
     if "log" not in self.extras:
       self.extras["log"] = {}
@@ -345,10 +345,10 @@ class ManagerBasedRlEnv:
     motion_cfg: Any,
   ) -> float | None:
     """Apply pull force to fall recovery environments.
-    
+
     Args:
       motion_cfg: Motion command configuration.
-      
+
     Returns:
       Average height difference if fall recovery environments exist, None otherwise.
     """
@@ -357,21 +357,22 @@ class ManagerBasedRlEnv:
       motion_cmd = self.command_manager.get_term("motion")
       if motion_cmd is None:
         return None
-        
+
       # Check if this is a MultiMotionCommand with fall recovery support
       from mjlab.tasks.tracking.mdp.multi_commands import MultiMotionCommand
+
       if not isinstance(motion_cmd, MultiMotionCommand):
         return None
-        
+
       # Get fall recovery mask from command instance
       fall_recovery_mask = getattr(motion_cmd, "init_fall_recovery_mask", None)
       if fall_recovery_mask is None:
         return None
-        
+
       fall_recovery_env_ids = torch.where(fall_recovery_mask)[0]
       if len(fall_recovery_env_ids) == 0:
         return None
-        
+
       # Get robot entity from command instance
       robot = motion_cmd.robot
       # Get base body index (use anchor body index) from command instance
@@ -379,54 +380,53 @@ class ManagerBasedRlEnv:
       # Get actual and target heights for fall recovery environments
       robot_anchor_pos_w = motion_cmd.robot_anchor_pos_w
       anchor_pos_w = motion_cmd.anchor_pos_w
-        
+
       actual_height = robot_anchor_pos_w[fall_recovery_env_ids, 2]
       target_height = anchor_pos_w[fall_recovery_env_ids, 2]
-      
+
       height_diff = target_height - actual_height
       height_threshold = 0.2
       need_force_mask = height_diff > height_threshold
 
       # [NOTE] 先全部拉起
-      need_force_mask = torch.ones(len(fall_recovery_env_ids), dtype=torch.bool, device=self.device)
-      
+      need_force_mask = torch.ones(
+        len(fall_recovery_env_ids), dtype=torch.bool, device=self.device
+      )
+
       # Calculate average height difference for fall recovery environments
       avg_height_diff = height_diff.mean().item()
-      
+
       # Create force tensor for all fall recovery environments
       num_fall_recovery = len(fall_recovery_env_ids)
-      force_tensor = torch.zeros(
-        (num_fall_recovery, 1, 3), 
-        device=self.device
-      )
-      
+      force_tensor = torch.zeros((num_fall_recovery, 1, 3), device=self.device)
+
       # Sample random force values from 0 to max_pull_force
       if need_force_mask.any():
         num_need_force = int(need_force_mask.sum().item())
         # Sample random force values (0 to max_pull_force)
         random_force_values = sample_uniform(
-          self.max_pull_force/2.0, self.max_pull_force, (num_need_force,), device=self.device
+          self.max_pull_force / 2.0,
+          self.max_pull_force,
+          (num_need_force,),
+          device=self.device,
         )
-        
-        force_tensor[need_force_mask, 0, 2] = random_force_values
-      
-      # Apply zero torque
-      torque_tensor = torch.zeros(
-        (num_fall_recovery, 1, 3),
-        device=self.device
-      )
 
-      # for play 
+        force_tensor[need_force_mask, 0, 2] = random_force_values
+
+      # Apply zero torque
+      torque_tensor = torch.zeros((num_fall_recovery, 1, 3), device=self.device)
+
+      # for play
       # force_tensor = force_tensor * 0.0
       # torque_tensor = torque_tensor * 0.0
       # print("force_tensor: ", force_tensor)
       # print("torque_tensor: ", torque_tensor)
 
       robot.write_external_wrench_to_sim(
-        force_tensor, 
-        torque_tensor, 
+        force_tensor,
+        torque_tensor,
         env_ids=fall_recovery_env_ids,
-        body_ids=[base_body_index]
+        body_ids=[base_body_index],
       )
       # print("force_tensor: ", force_tensor)
       return avg_height_diff
@@ -465,7 +465,7 @@ class ManagerBasedRlEnv:
         end = (history_steps + 1) * joint_dim
         policy_obs = cast(torch.Tensor, self.obs_buf["policy"])
         command_current_joint_pos = policy_obs[:, start:end]
-        # [NOTE] * 0.25 to accelerate the exploring process, as the output is the delta action on command. 
+        # [NOTE] * 0.25 to accelerate the exploring process, as the output is the delta action on command.
         action = action * 0.25 + command_current_joint_pos
       except (AttributeError, KeyError, ValueError):
         pass
@@ -483,7 +483,7 @@ class ManagerBasedRlEnv:
       if getattr(motion_cfg, "fall_recovery_ratio", 0) > 0.0:
         result = self._apply_fall_recovery_pull_force(motion_cfg)
         if result is not None:
-          avg_height_diff = result 
+          avg_height_diff = result
     # Update env counters.
     self.episode_length_buf += 1
     self.common_step_counter += 1

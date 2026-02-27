@@ -10,10 +10,10 @@ from mjlab.utils.lab_api.math import (
 )
 
 from .commands import MotionCommand
-from .multi_commands import MultiMotionCommand
 
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
+
 
 def motion_anchor_pos_b(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
   command = cast(MotionCommand, env.command_manager.get_term(command_name))
@@ -33,12 +33,16 @@ def motion_anchor_vel_w(env: ManagerBasedRlEnv, command_name: str) -> torch.Tens
   vel_rel_w = command.anchor_lin_vel_w
   return vel_rel_w.view(env.num_envs, -1)
 
+
 def motion_anchor_ang_vel_w(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
   command = cast(MotionCommand, env.command_manager.get_term(command_name))
   ang_vel_rel_w = command.anchor_ang_vel_w
   return ang_vel_rel_w.view(env.num_envs, -1)
 
-def motion_anchor_projected_gravity(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+
+def motion_anchor_projected_gravity(
+  env: ManagerBasedRlEnv, command_name: str
+) -> torch.Tensor:
   command = cast(MotionCommand, env.command_manager.get_term(command_name))
   projected_gravity = command.anchor_projected_gravity
   return projected_gravity.view(env.num_envs, -1)
@@ -82,4 +86,3 @@ def robot_body_ori_b(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
   )
   mat = matrix_from_quat(ori_b)
   return mat[..., :2].reshape(mat.shape[0], -1)
-

@@ -1,5 +1,5 @@
-import torch
 import rsl_rl.modules as _rsl_modules
+import torch
 from rsl_rl.modules.actor_critic import ActorCritic
 
 
@@ -30,8 +30,9 @@ class MjlabActorCritic(ActorCritic):
           "Should be 'scalar' or 'log'"
         )
 
-    std = torch.clamp(std, min=0.001, max=1.0)   # from SONIC 
+    std = torch.clamp(std, min=0.001, max=1.0)  # from SONIC
 
     self.distribution = torch.distributions.Normal(mean, std)
+
 
 _rsl_modules.MjlabActorCritic = MjlabActorCritic  # type: ignore[attr-defined]

@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import torch
 
 from mjlab.envs import ManagerBasedRlEnv, ManagerBasedRlEnvCfg, types
-from mjlab.managers.command_manager import CommandManager
 from mjlab.envs.manager_based_rl_env import cast
+from mjlab.managers.command_manager import CommandManager
+
 
 class CustomManagerBasedRlEnv(ManagerBasedRlEnv):
   """Custom environment that extends ManagerBasedRlEnv with additional functionality.
-  
+
   This class allows you to override specific methods while maintaining compatibility
   with the base ManagerBasedRlEnv interface.
   """
@@ -25,7 +24,6 @@ class CustomManagerBasedRlEnv(ManagerBasedRlEnv):
     **kwargs,
   ) -> None:
     super().__init__(cfg, device, render_mode, **kwargs)
-
 
   def step(self, action: torch.Tensor) -> types.VecEnvStepReturn:
     action = action.to(self.device)
@@ -41,7 +39,7 @@ class CustomManagerBasedRlEnv(ManagerBasedRlEnv):
         action = action * 0.25 + command_current_joint_pos
       except (AttributeError, KeyError, ValueError):
         pass
-    
+
     self.action_manager.process_action(action)
 
     for _ in range(self.cfg.decimation):
@@ -91,7 +89,7 @@ class CustomManagerBasedRlEnv(ManagerBasedRlEnv):
 
   def _reset_idx(self, env_ids: torch.Tensor | None = None) -> None:
     """Override reset method to add custom reset behavior.
-    
+
     You can:
     - Initialize custom state for specific environments
     - Apply custom reset logic (e.g., set some envs to lying down)
@@ -100,23 +98,23 @@ class CustomManagerBasedRlEnv(ManagerBasedRlEnv):
     # Your custom reset logic before base reset
     # For example, mark some environments as lying down
     # self._mark_lying_down_envs(env_ids)
-    
+
     # Call parent reset method
     super()._reset_idx(env_ids)
-    
+
     # Your custom reset logic after base reset
     # For example, initialize custom state
     # self._initialize_custom_state(env_ids)
 
   def _apply_continuous_curriculum_forces(self) -> None:
     """Apply continuous forces during simulation steps.
-    
+
     This is called inside the decimation loop (every physics step).
     Use this for forces that need to be applied continuously, such as:
     - Pull forces for lying-down robots
     - Curriculum learning forces
     - Adaptive assistance forces
-    
+
     Example:
         if hasattr(self, "_lying_down_mask") and hasattr(self, "scene"):
           lying_down_envs = torch.where(self._lying_down_mask)[0]
@@ -133,7 +131,7 @@ class CustomManagerBasedRlEnv(ManagerBasedRlEnv):
 
   def _update_custom_metrics(self) -> None:
     """Update custom metrics after each step.
-    
+
     This is called after the base step() completes.
     Use this to track custom statistics or update logging.
     """

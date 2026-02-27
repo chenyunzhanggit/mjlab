@@ -123,4 +123,3 @@ def export_policy_as_onnx(
     os.makedirs(path, exist_ok=True)
   policy_exporter = _OnnxPolicyExporter(actor_critic, normalizer, verbose)
   policy_exporter.export(path, filename)
-

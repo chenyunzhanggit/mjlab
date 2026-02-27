@@ -1,4 +1,5 @@
 """Script to play RL agent with RSL-RL."""
+
 import glob
 import os
 import sys
@@ -15,46 +16,49 @@ from mjlab.rl import RslRlVecEnvWrapper
 from mjlab.tasks.registry import list_tasks, load_env_cfg, load_rl_cfg, load_runner_cls
 from mjlab.tasks.tracking.mdp import MotionCommandCfg
 from mjlab.tasks.tracking.mdp.multi_commands import MultiMotionCommandCfg
+from mjlab.tasks.tracking.rl.exporter import export_policy_as_onnx
 from mjlab.utils.os import get_wandb_checkpoint_path
 from mjlab.utils.torch import configure_torch_backends
 from mjlab.utils.wrappers import VideoRecorder
 from mjlab.viewer import NativeMujocoViewer, ViserPlayViewer
 
-from mjlab.tasks.tracking.rl.exporter import export_policy_as_onnx
 
 def get_data10K_motion_files(motion_path: str, recursive: bool = True) -> list[str]:
-    if os.path.isfile(motion_path):
-        # 如果是单个文件，返回包含该文件的列表
-        if not motion_path.lower().endswith('.npz'):
-            print(f"警告: {motion_path} 不是.npz文件")
-        return [motion_path]
-    
-    elif os.path.isdir(motion_path):
-        if recursive:
-            # 递归搜索所有子目录中的.npz文件
-            pattern = os.path.join(motion_path, "**", "*.npz")
-            motion_files = glob.glob(pattern, recursive=True)
-        else:
-            # 只搜索当前目录（原行为）
-            motion_files = glob.glob(os.path.join(motion_path, "*.npz"))
-        
-        if not motion_files:
-            raise ValueError(f"在目录中未找到.npz文件: {motion_path}")
-        
-        # 过滤掉目录（确保只返回文件）
-        motion_files = [f for f in motion_files if os.path.isfile(f)]
-        motion_files.sort()  # 排序确保一致性
-        
-        print(f"在 {motion_path} 中找到 {len(motion_files)} 个motion文件{'（包含子目录）' if recursive else ''}")
-        for file in motion_files:
-            # 显示相对路径，更清晰
-            rel_path = os.path.relpath(file, motion_path)
-            print(f" - {rel_path}")
-        
-        return motion_files
-    
+  if os.path.isfile(motion_path):
+    # 如果是单个文件，返回包含该文件的列表
+    if not motion_path.lower().endswith(".npz"):
+      print(f"警告: {motion_path} 不是.npz文件")
+    return [motion_path]
+
+  elif os.path.isdir(motion_path):
+    if recursive:
+      # 递归搜索所有子目录中的.npz文件
+      pattern = os.path.join(motion_path, "**", "*.npz")
+      motion_files = glob.glob(pattern, recursive=True)
     else:
-        raise ValueError(f"无效路径: {motion_path}。必须是文件或目录。")
+      # 只搜索当前目录（原行为）
+      motion_files = glob.glob(os.path.join(motion_path, "*.npz"))
+
+    if not motion_files:
+      raise ValueError(f"在目录中未找到.npz文件: {motion_path}")
+
+    # 过滤掉目录（确保只返回文件）
+    motion_files = [f for f in motion_files if os.path.isfile(f)]
+    motion_files.sort()  # 排序确保一致性
+
+    print(
+      f"在 {motion_path} 中找到 {len(motion_files)} 个motion文件{'（包含子目录）' if recursive else ''}"
+    )
+    for file in motion_files:
+      # 显示相对路径，更清晰
+      rel_path = os.path.relpath(file, motion_path)
+      print(f" - {rel_path}")
+
+    return motion_files
+
+  else:
+    raise ValueError(f"无效路径: {motion_path}。必须是文件或目录。")
+
 
 @dataclass(frozen=True)
 class PlayConfig:
@@ -97,7 +101,6 @@ def run_play(task_id: str, cfg: PlayConfig):
     env_cfg.terminations = {}
     print("[INFO]: Terminations disabled")
 
-
   is_multi_tracking_task = "motion" in env_cfg.commands and isinstance(
     env_cfg.commands["motion"], MultiMotionCommandCfg
   )
@@ -121,7 +124,6 @@ def run_play(task_id: str, cfg: PlayConfig):
       api = wandb.Api()
       artifact = api.artifact(registry_name)
       motion_cmd.motion_path = str(Path(artifact.download()) / "motion.npz")
-
 
     else:
       raise ValueError(
@@ -186,7 +188,7 @@ def run_play(task_id: str, cfg: PlayConfig):
           if art is None:
             raise RuntimeError("No motion artifact found in the run.")
           motion_cmd.motion_file = str(Path(art.download()) / "motion.npz")
-  
+
   log_dir: Path | None = None
   resume_path: Path | None = None
   if TRAINED_MODE:
@@ -266,10 +268,9 @@ def run_play(task_id: str, cfg: PlayConfig):
     runner.load(str(resume_path), map_location=device)
     policy = runner.get_inference_policy(device=device)
 
-
-  # export onnx 
+  # export onnx
   export_model_dir = os.path.join(os.path.dirname(resume_path), "exported")
-  ckpt = resume_path.name.split('_')[1].split('.')[0]
+  ckpt = resume_path.name.split("_")[1].split(".")[0]
   filename = f"policy_{ckpt}.onnx"
 
   export_policy_as_onnx(
@@ -295,7 +296,6 @@ def run_play(task_id: str, cfg: PlayConfig):
     ViserPlayViewer(env, policy).run()
   else:
     raise RuntimeError(f"Unsupported viewer backend: {resolved_viewer}")
-  
 
   env.close()
 

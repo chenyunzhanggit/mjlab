@@ -93,10 +93,15 @@ def generated_commands(env: ManagerBasedRlEnv, command_name: str) -> torch.Tenso
   assert command is not None
   return command
 
-def generated_commands_joint_pos(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
+
+def generated_commands_joint_pos(
+  env: ManagerBasedRlEnv, command_name: str
+) -> torch.Tensor:
   command = env.command_manager.get_command_joint_pos(command_name)
   assert command is not None
   return command
+
+
 ##
 # Sensors.
 ##
