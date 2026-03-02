@@ -305,36 +305,25 @@ def run_sim(
         ):
           log[k] = np.stack(log[k], axis=0)
 
-        print("Saving to /tmp/motion.npz...")
-        np.savez("/tmp/motion.npz", **log)
+        # Ensure output directory exists
+        import os
+        output_dir = os.path.dirname(output_name)
+        if output_dir and not os.path.exists(output_dir):
+          os.makedirs(output_dir, exist_ok=True)
 
-        print("Uploading to Weights & Biases...")
-        import wandb
-
-        COLLECTION = output_name
-        run = wandb.init(project="csv_to_npz", name=COLLECTION)
-        print(f"[INFO]: Logging motion to wandb: {COLLECTION}")
-        REGISTRY = "motions"
-        logged_artifact = run.log_artifact(
-          artifact_or_path="/tmp/motion.npz", name=COLLECTION, type=REGISTRY
-        )
-        run.link_artifact(
-          artifact=logged_artifact,
-          target_path=f"wandb-registry-{REGISTRY}/{COLLECTION}",
-        )
-        print(f"[INFO]: Motion saved to wandb registry: {REGISTRY}/{COLLECTION}")
+        print(f"Saving to {output_name}...")
+        np.savez(output_name, **log)
+        print(f"[INFO]: Motion saved to {output_name}")
 
         if render:
           from moviepy import ImageSequenceClip
 
           print("Creating video...")
+          # Save video next to the npz file
+          video_path = os.path.splitext(output_name)[0] + ".mp4"
           clip = ImageSequenceClip(frames, fps=output_fps)
-          clip.write_videofile("./motion.mp4")
-
-          print("Logging video to wandb...")
-          wandb.log({"motion_video": wandb.Video("./motion.mp4", format="mp4")})
-
-        wandb.finish()
+          clip.write_videofile(video_path)
+          print(f"[INFO]: Video saved to {video_path}")
 
 
 def main(

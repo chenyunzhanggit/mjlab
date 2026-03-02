@@ -359,7 +359,6 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
     },
   )
   num_ref_motion_time_steps = motion_cmd_cfg.history_steps + motion_cmd_cfg.future_steps
-
   ##
   # Observations
   ##
@@ -572,7 +571,7 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
       weight=1.0,
       params={"command_name": "motion", "std": 3.14},
     ),
-    "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-1e-1),
+    "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-1.0e-1),
     "joint_limit": RewardTermCfg(
       func=mdp.joint_pos_limits,
       weight=-10.0,
@@ -588,6 +587,7 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
       weight=2.0,
       params={"command_name": "motion", "std": 0.3},
     ),
+
   }
 
   ##

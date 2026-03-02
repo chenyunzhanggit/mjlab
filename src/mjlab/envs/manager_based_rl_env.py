@@ -203,7 +203,7 @@ class ManagerBasedRlEnv:
       cfg.scene.num_envs, device=device, dtype=torch.long
     )
     # Initialize max pull force for fall recovery curriculum
-    self.max_pull_force = 250.0  # Initial max pull force (Newtons)
+    self.max_pull_force = 200.0  # Initial max pull force (Newtons)
     self.render_mode = render_mode
     self._offline_renderer: OffscreenRenderer | None = None
     if self.render_mode == "rgb_array":
@@ -322,7 +322,7 @@ class ManagerBasedRlEnv:
     # Adaptive curriculum: adjust max_pull_force based on average height difference
     if avg_height_diff > 0.4:
       # If average height difference > 0.4, keep max force at 200
-      self.max_pull_force = 250.0
+      self.max_pull_force = 200.0
     elif avg_height_diff < 0.4:
       # If average height difference < 0.4, reduce max force by 0.99
       self.max_pull_force = self.max_pull_force * 0.998
@@ -469,6 +469,7 @@ class ManagerBasedRlEnv:
         action = action * 0.25 + command_current_joint_pos
       except (AttributeError, KeyError, ValueError):
         pass
+
     self.action_manager.process_action(action)
 
     # Track average height difference for curriculum update

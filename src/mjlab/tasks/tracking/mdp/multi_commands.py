@@ -1213,7 +1213,7 @@ class MultiMotionCommand(CommandTerm):
 
     # 随机选择指定比例的环境设置为躺下状态
     num_envs_to_reset = len(env_ids)
-    num_fall_recovery = max(1, int(num_envs_to_reset * self.cfg.fall_recovery_ratio))
+    num_fall_recovery = int(num_envs_to_reset * self.cfg.fall_recovery_ratio) #max(1, int(num_envs_to_reset * self.cfg.fall_recovery_ratio))
     # num_fall_recovery = int(num_envs_to_reset * self.cfg.fall_recovery_ratio)
     # 先清除当前重置环境的躺下标记（因为要重新分配）
     self.init_fall_recovery_mask[env_ids] = False
