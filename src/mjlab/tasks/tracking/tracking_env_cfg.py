@@ -587,7 +587,6 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
       weight=2.0,
       params={"command_name": "motion", "std": 0.3},
     ),
-
   }
 
   ##

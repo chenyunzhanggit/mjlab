@@ -4,7 +4,7 @@ from rsl_rl.modules.actor_critic import ActorCritic
 
 
 class MjlabActorCritic(ActorCritic):
-  def update_distribution(self, obs):
+  def _update_distribution(self, obs):
     # 直接复制原来的实现，然后只改你关心的几行就行
     if self.state_dependent_std:
       mean_and_std = self.actor(obs)
