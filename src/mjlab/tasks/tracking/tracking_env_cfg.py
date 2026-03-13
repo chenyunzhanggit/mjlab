@@ -341,7 +341,7 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
     motion_path="",
     anchor_body_name="",
     body_names=(),
-    fall_recovery_ratio=0.15,
+    fall_recovery_ratio=0.0,
     fall_recovery_pose_range={
       "roll": (-math.pi / 2.0, math.pi / 2.0),  # roll 范围
       "pitch": (math.pi / 2.0 - 0.1, math.pi / 2.0 + 0.1),
