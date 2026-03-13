@@ -62,27 +62,35 @@ Evaluate a policy while training (fetches latest checkpoint from Weights & Biase
 uv run play Mjlab-Velocity-Flat-Unitree-G1 --wandb-run-path your-org/mjlab/run-id
 ```
 
-### 2. Single Motion Imitation
-
-Train a humanoid to mimic reference motions. mjlab uses WandB to manage motion datasets.
-See the [motion preprocessing documentation](https://github.com/HybridRobotics/whole_body_tracking/blob/main/README.md#motion-preprocessing--registry-setup) for setup instructions.
-
-```bash
-uv run train Mjlab-Tracking-Flat-Unitree-G1 --registry-name your-org/motions/motion-name --env.scene.num-envs 4096
-uv run play Mjlab-Tracking-Flat-Unitree-G1 --wandb-run-path your-org/mjlab/run-id
-```
-
-### 3. Multi Motion Imitation
+### 2. Multi Motion Imitation
 
 Train a humanoid to mimic reference motions. mjlab uses WandB to manage motion datasets.
 See the [motion preprocessing documentation](https://github.com/HybridRobotics/whole_body_tracking/blob/main/README.md#motion-preprocessing--registry-setup) for setup instructions.
 
 ```bash
 python src/mjlab/scripts/train_multi.py Mjlab-Tracking-Teleoperation-Unitree-G1 --env.commands.motion.motion_path /home/xxx/xxx/ --env.scene.num-envs 8192 --agent.run-name xxx --env.use_delta_action False --agent.logger tensorboard --agent.max-iterations 300000 --agent.save-interval 2500 --env.commands.motion.fall-recovery-ratio 0.0
+```
 
+Play:
+```bash
 python src/mjlab/scripts/play_multi.py Mjlab-Tracking-Teleoperation-Unitree-G1  --checkpoint_file=your_ckp_path --motion_path /home/xxx/xxx/  --use_delta_action False --num_envs=32
 
 ```
+
+
+### 3. Distillation
+Check your STUDENT observarions in src/mjlab/tasks/tracking/config/g1/env_cfgs.py: unitree_g1_student_env_cfg
+
+Train:
+```bash
+python src/mjlab/scripts/train_student.py --env.commands.motion.motion-path your-datasets-path  --env.scene.num-envs 4096  --agent.teacher-checkpoint your-teacher-ckp --agent.logger tensorboard
+```
+
+Play:
+```bash
+python src/mjlab/scripts/play_student.py --checkpoint-file  student-ckp --motion-path your-datasets-path --num-envs 1   
+```
+
 
 ### 4. Sanity-check with Dummy Agents
 
