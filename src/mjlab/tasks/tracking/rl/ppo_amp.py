@@ -116,9 +116,6 @@ class PPOAmp(PPO):
     # obs["amp"] shape: (num_envs, disc_obs_steps, disc_obs_dim)
     disc_obs = obs["amp"].to(self.device)
     self.disc_obs_buffer.append(disc_obs)
-    import ipdb
-
-    ipdb.set_trace()
     # Sample a batch of demo sequences from the reference motion loader.
     if self.demo_dataloader is not None:
       num_envs = disc_obs.shape[0]

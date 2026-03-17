@@ -369,9 +369,6 @@ class MultiMotionLoader:
     assert steps == self._amp_seq_steps, (
       f"steps={steps} does not match precomputed table steps={self._amp_seq_steps}."
     )
-    import ipdb
-
-    ipdb.set_trace()
     rand_idx = torch.randint(
       0, self._amp_seq_starts.shape[0], (batch_size,), device=self.device
     )
