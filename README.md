@@ -77,6 +77,18 @@ python src/mjlab/scripts/play_multi.py Mjlab-Tracking-Teleoperation-Unitree-G1  
 
 ```
 
+#### If Add AMP 
+train:
+```bash
+python src/mjlab/scripts/train_multi.py  Mjlab-Tracking-Teleoperation-AMP-Unitree-G1 --env.commands.motion.motion-path /home/lenovo/g1_retargeted_data/npz/Data10k --env.scene.num-envs 4096 --agent.logger tensorboard --agent.run-name test-amp                     
+```
+
+play:
+```bash
+python src/mjlab/scripts/play_multi.py Mjlab-Tracking-Teleoperation-Unitree-G1  --checkpoint_file=checkpint-file-path --motion_path motion-path --num_envs=1            
+```
+
+
 
 ### 3. Distillation
 Check your STUDENT observarions in src/mjlab/tasks/tracking/config/g1/env_cfgs.py: unitree_g1_student_env_cfg

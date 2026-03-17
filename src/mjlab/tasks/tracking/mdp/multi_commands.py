@@ -268,6 +268,119 @@ class MultiMotionLoader:
     )
     self.fps = self.fps_list[0]  # 可以根据需求调整
 
+    self._amp_obs_flat: torch.Tensor | None = None
+
+  # ------------------------------------------------------------------
+  # AMP demo data sampling (reuses already-loaded GPU tensors)
+  # ------------------------------------------------------------------
+
+  def build_amp_obs_buffer(self, anchor_body_idx: int) -> None:
+    """Precompute a flat AMP obs tensor across all motion files.
+
+    Feature layout per frame:
+      [joint_pos (n_dof)]
+
+    This is called once by the runner; subsequent ``sample_amp_obs`` calls are
+    a single GPU randint + index, with no extra data loading.
+    """
+    obs_list = []
+    for i in range(self.num_files):
+      # anchor_quat = self._body_quat_w_list[i][:, anchor_body_idx]  # (T, 4)
+      # lin_vel_w = self._body_lin_vel_w_list[i][:, anchor_body_idx]  # (T, 3)
+      # ang_vel_w = self._body_ang_vel_w_list[i][:, anchor_body_idx]  # (T, 3)
+
+      # quat_inv_anchor = quat_inv(anchor_quat)
+      # lin_vel_b = quat_apply(quat_inv_anchor, lin_vel_w)
+      # ang_vel_b = quat_apply(quat_inv_anchor, ang_vel_w)
+      obs_list.append(
+        torch.cat(
+          # [lin_vel_b, ang_vel_b, self.joint_pos_list[i], self.joint_vel_list[i]], dim=-1
+          [self.joint_pos_list[i]],
+          dim=-1,
+        )
+      )
+
+    self._amp_obs_flat = torch.cat(obs_list, dim=0)  # (total_frames, n_dof)
+    self._amp_seq_starts: torch.Tensor | None = None
+    self._amp_seq_steps: int = 0
+
+  @property
+  def amp_obs_dim(self) -> int:
+    assert self._amp_obs_flat is not None, "Call build_amp_obs_buffer() first."
+    return self._amp_obs_flat.shape[1]
+
+  def build_amp_seq_table(self, steps: int) -> None:
+    """Precompute valid sequence start indices for ``sample_amp_obs_sequence``.
+
+    Must be called once (after ``build_amp_obs_buffer``) before training starts.
+    Builds a 1-D tensor of all absolute frame indices into ``_amp_obs_flat``
+    that are valid starting positions for a ``steps``-length consecutive window
+    within a single motion clip.
+
+    Args:
+      steps: Number of consecutive frames per sequence. Must match the value
+        passed to every subsequent ``sample_amp_obs_sequence`` call.
+    """
+    assert self._amp_obs_flat is not None, "Call build_amp_obs_buffer() first."
+    starts_list: list[torch.Tensor] = []
+    offset = 0
+    for length in self.file_lengths.tolist():
+      n_valid = length - steps + 1
+      if n_valid > 0:
+        starts_list.append(
+          torch.arange(offset, offset + n_valid, dtype=torch.long, device=self.device)
+        )
+      offset += length
+
+    if not starts_list:
+      raise RuntimeError(
+        f"No motion file is long enough to provide sequences of {steps} frames."
+      )
+    self._amp_seq_starts = torch.cat(starts_list)  # (total_valid,)
+    self._amp_seq_steps = steps
+
+  def sample_amp_obs(self, batch_size: int) -> torch.Tensor:
+    """Return a random batch of AMP demo observations. Shape: (batch_size, amp_obs_dim)."""
+    assert self._amp_obs_flat is not None, "Call build_amp_obs_buffer() first."
+    idx = torch.randint(
+      0, self._amp_obs_flat.shape[0], (batch_size,), device=self.device
+    )
+    return self._amp_obs_flat[idx]
+
+  def sample_amp_obs_sequence(self, batch_size: int, steps: int) -> torch.Tensor:
+    """Return batches of *consecutive* AMP demo observations.
+
+    Requires ``build_amp_seq_table(steps)`` to have been called first.
+    Sampling is a single randint + two index operations — no Python loops,
+    no CUDA synchronisation.
+
+    Args:
+      batch_size: Number of sequences to sample.
+      steps: Number of consecutive frames per sequence. Must match the value
+        passed to ``build_amp_seq_table``.
+
+    Returns:
+      Tensor of shape (batch_size, steps, amp_obs_dim).
+    """
+    assert self._amp_obs_flat is not None, "Call build_amp_obs_buffer() first."
+    assert self._amp_seq_starts is not None, (
+      "Call build_amp_seq_table(steps) before sample_amp_obs_sequence()."
+    )
+    assert steps == self._amp_seq_steps, (
+      f"steps={steps} does not match precomputed table steps={self._amp_seq_steps}."
+    )
+    import ipdb
+
+    ipdb.set_trace()
+    rand_idx = torch.randint(
+      0, self._amp_seq_starts.shape[0], (batch_size,), device=self.device
+    )
+    start_frames = self._amp_seq_starts[rand_idx]  # (batch_size,)
+    frame_idx = start_frames.unsqueeze(1) + torch.arange(
+      steps, device=self.device
+    ).unsqueeze(0)  # (batch_size, steps)
+    return self._amp_obs_flat[frame_idx]  # (batch_size, steps, amp_obs_dim)
+
   def get_motion_data_batch(
     self, motion_idx: int, time_steps_start: torch.Tensor, time_steps_end: torch.Tensor
   ) -> dict[str, torch.Tensor]:
@@ -1274,7 +1387,6 @@ class MultiMotionCommand(CommandTerm):
       root_ori[fall_recovery_env_ids] = fall_recovery_quat
 
       # 2. 应用躺下状态的关节角度噪声
-      self.robot.data.default_joint_pos
       fall_recovery_joint_pos = joint_pos[fall_recovery_env_ids].clone()
       fall_recovery_joint_pos += sample_uniform(
         lower=self.cfg.fall_recovery_joint_position_range[0],

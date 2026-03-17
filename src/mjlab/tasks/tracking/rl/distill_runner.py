@@ -86,11 +86,6 @@ class MotionTrackingDistillationRunner(MotionTrackingOnPolicyRunner):
   def learn(
     self, num_learning_iterations: int, init_at_random_ep_len: bool = False
   ) -> None:
-    """Pure distillation training loop.
-
-    Rollout 只用于收集 (student_obs, teacher_action) 配对，不做任何 PPO 计算。
-    每轮迭代执行一次 MSE 蒸馏更新。
-    """
     self._prepare_logging_writer()
 
     if init_at_random_ep_len:
@@ -144,7 +139,9 @@ class MotionTrackingDistillationRunner(MotionTrackingOnPolicyRunner):
 
           teacher_actions_buf[step].copy_(self._teacher_action_mean(obs["policy"]))
           student_obs_buf[step].copy_(s_obs)
+          import ipdb
 
+          ipdb.set_trace()
           obs, rewards, dones, extras = self.env.step(actions.to(self.env.device))  # type: ignore[union-attr]
           obs, rewards, dones = (
             obs.to(self.device),

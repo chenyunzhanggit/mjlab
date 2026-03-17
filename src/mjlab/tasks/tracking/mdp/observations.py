@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, cast
 
 import torch
 
+from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.utils.lab_api.math import (
   matrix_from_quat,
   subtract_frame_transforms,
@@ -13,6 +14,21 @@ from .commands import MotionCommand
 
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
+
+_DEFAULT_ASSET_CFG = SceneEntityCfg("robot")
+
+
+def amp_abs_joint_pos(
+  env: ManagerBasedRlEnv,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Absolute joint positions (relative to URDF zero), for AMP discriminator obs.
+
+  Unlike ``joint_pos_rel``, this does NOT subtract the default standing pose,
+  so it matches the joint_pos stored in NPZ motion files (also relative to URDF zero).
+  """
+  asset = env.scene[asset_cfg.name]
+  return asset.data.joint_pos[:, asset_cfg.joint_ids]
 
 
 def motion_anchor_pos_b(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:

@@ -57,9 +57,11 @@ register_mjlab_task(
 
 register_mjlab_task(
   task_id="Mjlab-Tracking-Teleoperation-AMP-Unitree-G1",
-  env_cfg=unitree_g1_teleoperation_amp_env_cfg(has_state_estimation=False),
+  env_cfg=unitree_g1_teleoperation_amp_env_cfg(
+    has_state_estimation=False, disc_obs_steps=5
+  ),
   play_env_cfg=unitree_g1_teleoperation_amp_env_cfg(
-    has_state_estimation=False, play=True
+    has_state_estimation=False, play=True, disc_obs_steps=5
   ),
   rl_cfg=unitree_g1_teleoperation_amp_runner_cfg(),
   runner_cls=AmpMotionTrackingOnPolicyRunner,

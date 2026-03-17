@@ -135,7 +135,7 @@ class TrainingMonitor:
       # Remove any existing resume/load arguments to avoid conflicts
       filtered_args = []
       skip_next = False
-      for i, arg in enumerate(cmd):
+      for _i, arg in enumerate(cmd):
         if skip_next:
           skip_next = False
           continue

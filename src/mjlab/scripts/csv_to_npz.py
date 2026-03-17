@@ -307,6 +307,7 @@ def run_sim(
 
         # Ensure output directory exists
         import os
+
         output_dir = os.path.dirname(output_name)
         if output_dir and not os.path.exists(output_dir):
           os.makedirs(output_dir, exist_ok=True)

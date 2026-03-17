@@ -349,6 +349,9 @@ class ObservationManager(ManagerBase):
         delay_buffer.append(obs)
         obs = delay_buffer.compute()
       if term_cfg.history_length > 0:
+        import ipdb
+
+        ipdb.set_trace()
         circular_buffer = self._group_obs_term_history_buffer[group_name][term_name]
         if update_history or not circular_buffer.is_initialized:
           circular_buffer.append(obs)

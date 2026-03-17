@@ -106,11 +106,21 @@ def unitree_g1_flat_tracking_env_cfg(
 def unitree_g1_teleoperation_amp_env_cfg(
   has_state_estimation: bool = True,
   play: bool = False,
+  disc_obs_steps: int = 2,
 ) -> ManagerBasedRlEnvCfg:
   """Unitree G1 teleoperation env with an additional 'amp' observation group.
 
-  The 'amp' group exposes raw robot state (no noise, no history) for the AMP
-  discriminator:  [base_lin_vel (3), base_ang_vel (3), joint_pos (n_dof), joint_vel (n_dof)]
+  The 'amp' group exposes raw robot state for the AMP discriminator with
+  temporal history:
+    [joint_pos (n_dof)]
+  per frame, stacked over ``disc_obs_steps`` consecutive steps.
+
+  obs["amp"] shape: (num_envs, disc_obs_steps, obs_dim_per_frame)
+
+  Args:
+    disc_obs_steps: Number of consecutive frames for the discriminator.
+      Must match ``AmpCfg.disc_obs_steps`` in the runner config.
+      Set to 1 for single-frame (no history) AMP.
   """
   from mjlab.managers.observation_manager import ObservationGroupCfg
 
@@ -119,19 +129,26 @@ def unitree_g1_teleoperation_amp_env_cfg(
   )
 
   amp_terms = {
-    "base_lin_vel": ObservationTermCfg(
-      func=mdp.builtin_sensor, params={"sensor_name": "robot/imu_lin_vel"}
-    ),
-    "base_ang_vel": ObservationTermCfg(
-      func=mdp.builtin_sensor, params={"sensor_name": "robot/imu_ang_vel"}
-    ),
-    "joint_pos": ObservationTermCfg(func=mdp.joint_pos_rel),
-    "joint_vel": ObservationTermCfg(func=mdp.joint_vel_rel),
+    # "base_lin_vel": ObservationTermCfg(
+    #   func=mdp.builtin_sensor,
+    #   params={"sensor_name": "robot/imu_lin_vel"},
+    # ),
+    # "base_ang_vel": ObservationTermCfg(
+    #   func=mdp.builtin_sensor,
+    #   params={"sensor_name": "robot/imu_ang_vel"},
+    # ),
+    "joint_pos": ObservationTermCfg(func=mdp.amp_abs_joint_pos),
+    # "joint_vel": ObservationTermCfg(func=mdp.joint_vel_rel),
   }
+  # history_length set at group level so flatten_history_dim=False propagates to
+  # all terms. Each term → (num_envs, disc_obs_steps, dim_i); concatenate along
+  # dim=-1 → final shape: (num_envs, disc_obs_steps, sum_dim).
   cfg.observations["amp"] = ObservationGroupCfg(
     terms=amp_terms,
     concatenate_terms=True,
     enable_corruption=False,
+    history_length=disc_obs_steps,
+    flatten_history_dim=False,
   )
   return cfg
 
@@ -211,7 +228,7 @@ def unitree_g1_teleoperation_env_cfg(
   if play:
     # Effectively infinite episode length.
     cfg.episode_length_s = int(1e9)
-    cfg.commands["motion"].fall_recovery_ratio = 0.0
+    motion_cmd.fall_recovery_ratio = 0.0
     cfg.observations["policy"].enable_corruption = False
     cfg.events.pop("push_robot", None)
 
@@ -232,16 +249,6 @@ def unitree_g1_student_env_cfg(play: bool = False):
   and ``'critic'`` groups are preserved so the distillation runner can
   forward the frozen teacher through the ``'policy'`` group at every step.
 
-  Student obs composition:
-    motion_ref_vel  :  3   (current anchor linear velocity from tele-op cmd)
-    hand_pos_b      :  6   (left + right wrist_yaw_link in torso frame)
-    projected_gravity: 15  (history_length=5 × 3)
-    base_ang_vel    : 15   (history_length=5 × 3)
-    joint_pos       : 150  (history_length=5 × 30 joints)
-    joint_vel       : 150  (history_length=5 × 30 joints)
-    actions         : 150  (history_length=5 × 30 joints)
-    ----------------------------
-    Total           : 489
   """
   from mjlab.tasks.tracking.mdp import student_observations as student_obs
   from mjlab.utils.noise import UniformNoiseCfg as Unoise
@@ -298,9 +305,7 @@ def unitree_g1_student_env_cfg(play: bool = False):
       func=mdp.last_action,
       history_length=5,
     ),
-
     ######################## all obs for test code ########################
-    
     # "commands_joint_pos_only": ObservationTermCfg(
     #   func=mdp.generated_commands_joint_pos,
     #   params={"command_name": "motion"},
@@ -358,7 +363,6 @@ def unitree_g1_student_env_cfg(play: bool = False):
     #   func=mdp.last_action,
     #   history_length=5,
     # ),
-
   }
 
   cfg.observations["student"] = ObservationGroupCfg(
