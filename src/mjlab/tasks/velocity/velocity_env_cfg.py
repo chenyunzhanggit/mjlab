@@ -379,11 +379,11 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
       nconmax=35,
       njmax=1500,
       mujoco=MujocoCfg(
-        timestep=0.005,
+        timestep=0.002,
         iterations=10,
         ls_iterations=20,
       ),
     ),
-    decimation=4,
+    decimation=10,
     episode_length_s=20.0,
   )

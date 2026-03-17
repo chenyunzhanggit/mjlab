@@ -307,12 +307,12 @@ def make_tracking_env_cfg() -> ManagerBasedRlEnvCfg:
       nconmax=35,
       njmax=250,
       mujoco=MujocoCfg(
-        timestep=0.005,
+        timestep=0.002,
         iterations=10,
         ls_iterations=20,
       ),
     ),
-    decimation=4,
+    decimation=10,
     episode_length_s=10.0,
   )
 
@@ -641,11 +641,11 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
       nconmax=35,
       njmax=250,
       mujoco=MujocoCfg(
-        timestep=0.005,
+        timestep=0.002,
         iterations=10,
         ls_iterations=20,
       ),
     ),
-    decimation=4,
+    decimation=10,
     episode_length_s=10.0,
   )
