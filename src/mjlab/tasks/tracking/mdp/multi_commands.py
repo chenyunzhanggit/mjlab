@@ -285,17 +285,16 @@ class MultiMotionLoader:
     """
     obs_list = []
     for i in range(self.num_files):
-      # anchor_quat = self._body_quat_w_list[i][:, anchor_body_idx]  # (T, 4)
-      # lin_vel_w = self._body_lin_vel_w_list[i][:, anchor_body_idx]  # (T, 3)
-      # ang_vel_w = self._body_ang_vel_w_list[i][:, anchor_body_idx]  # (T, 3)
+      anchor_quat = self._body_quat_w_list[i][:, anchor_body_idx]  # (T, 4)
+      lin_vel_w = self._body_lin_vel_w_list[i][:, anchor_body_idx]  # (T, 3)
+      ang_vel_w = self._body_ang_vel_w_list[i][:, anchor_body_idx]  # (T, 3)
 
-      # quat_inv_anchor = quat_inv(anchor_quat)
-      # lin_vel_b = quat_apply(quat_inv_anchor, lin_vel_w)
-      # ang_vel_b = quat_apply(quat_inv_anchor, ang_vel_w)
+      quat_inv_anchor = quat_inv(anchor_quat)
+      lin_vel_b = quat_apply(quat_inv_anchor, lin_vel_w)
+      ang_vel_b = quat_apply(quat_inv_anchor, ang_vel_w)
       obs_list.append(
         torch.cat(
-          # [lin_vel_b, ang_vel_b, self.joint_pos_list[i], self.joint_vel_list[i]], dim=-1
-          [self.joint_pos_list[i]],
+          [lin_vel_b, ang_vel_b, self.joint_pos_list[i], self.joint_vel_list[i]],
           dim=-1,
         )
       )

@@ -129,16 +129,16 @@ def unitree_g1_teleoperation_amp_env_cfg(
   )
 
   amp_terms = {
-    # "base_lin_vel": ObservationTermCfg(
-    #   func=mdp.builtin_sensor,
-    #   params={"sensor_name": "robot/imu_lin_vel"},
-    # ),
-    # "base_ang_vel": ObservationTermCfg(
-    #   func=mdp.builtin_sensor,
-    #   params={"sensor_name": "robot/imu_ang_vel"},
-    # ),
+    "base_lin_vel": ObservationTermCfg(
+      func=mdp.builtin_sensor,
+      params={"sensor_name": "robot/imu_lin_vel"},
+    ),
+    "base_ang_vel": ObservationTermCfg(
+      func=mdp.builtin_sensor,
+      params={"sensor_name": "robot/imu_ang_vel"},
+    ),
     "joint_pos": ObservationTermCfg(func=mdp.amp_abs_joint_pos),
-    # "joint_vel": ObservationTermCfg(func=mdp.joint_vel_rel),
+    "joint_vel": ObservationTermCfg(func=mdp.joint_vel_rel),
   }
   # history_length set at group level so flatten_history_dim=False propagates to
   # all terms. Each term → (num_envs, disc_obs_steps, dim_i); concatenate along
