@@ -67,8 +67,8 @@ def ref_anchor_height(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor
   Shape: ``(num_envs, 1)``
   """
   command = cast(MultiMotionCommand, env.command_manager.get_term(command_name))
-  # Robot anchor (torso) position in world frame: (N, 3)
-  anchor_pos_w = command.robot_anchor_pos_w
+  # anchor (torso) position in world frame: (N, 3)
+  anchor_pos_w = command.anchor_pos_w
   # Ground plane is assumed to be at z=0 in world frame, so height is just z-coordinate.
   anchor_height = anchor_pos_w[:, 2:3]  # (N, 1)
   return anchor_height.contiguous()
