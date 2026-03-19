@@ -59,7 +59,7 @@
     <link rel="prev" title="API Reference" href="index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-    <meta name="docbuild:last-update" content="Feb 26, 2026"/>
+    <meta name="docbuild:last-update" content="Mar 19, 2026"/>
   </head>
   
   
@@ -449,6 +449,11 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.CustomManagerBasedRlEnv"><code class="docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.CustomManagerBasedRlEnv.__init__"><code class="docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv.__init__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.CustomManagerBasedRlEnv.step"><code class="docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv.step()</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.ManagerBasedRlEnv"><code class="docutils literal notranslate"><span class="pre">ManagerBasedRlEnv</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.ManagerBasedRlEnv.is_vector_env"><code class="docutils literal notranslate"><span class="pre">ManagerBasedRlEnv.is_vector_env</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.ManagerBasedRlEnv.metadata"><code class="docutils literal notranslate"><span class="pre">ManagerBasedRlEnv.metadata</span></code></a></li>
@@ -491,11 +496,6 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.ManagerBasedRlEnvCfg.__init__"><code class="docutils literal notranslate"><span class="pre">ManagerBasedRlEnvCfg.__init__()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.CustomManagerBasedRlEnv"><code class="docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.CustomManagerBasedRlEnv.__init__"><code class="docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv.__init__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.CustomManagerBasedRlEnv.step"><code class="docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv.step()</span></code></a></li>
-</ul>
-</li>
 </ul>
             </nav>
         </div>
@@ -513,18 +513,49 @@ document.write(`
 <p id="module-mjlab.envs"><strong>Classes:</strong></p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#mjlab.envs.ManagerBasedRlEnv" title="mjlab.envs.ManagerBasedRlEnv"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ManagerBasedRlEnv</span></code></a></p></td>
-<td><p>Manager-based RL environment.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#mjlab.envs.ManagerBasedRlEnvCfg" title="mjlab.envs.ManagerBasedRlEnvCfg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ManagerBasedRlEnvCfg</span></code></a></p></td>
-<td><p>Configuration for a manager-based RL environment.</p></td>
-</tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#mjlab.envs.CustomManagerBasedRlEnv" title="mjlab.envs.CustomManagerBasedRlEnv"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv</span></code></a></p></td>
 <td><p>Custom environment that extends ManagerBasedRlEnv with additional functionality.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#mjlab.envs.ManagerBasedRlEnv" title="mjlab.envs.ManagerBasedRlEnv"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ManagerBasedRlEnv</span></code></a></p></td>
+<td><p>Manager-based RL environment.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#mjlab.envs.ManagerBasedRlEnvCfg" title="mjlab.envs.ManagerBasedRlEnvCfg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ManagerBasedRlEnvCfg</span></code></a></p></td>
+<td><p>Configuration for a manager-based RL environment.</p></td>
 </tr>
 </tbody>
 </table>
 </div>
+<dl class="py class">
+<dt class="sig sig-object py" id="mjlab.envs.CustomManagerBasedRlEnv">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mjlab.envs.</span></span><span class="sig-name descname"><span class="pre">CustomManagerBasedRlEnv</span></span><a class="reference internal" href="../../_modules/mjlab/envs/custom_manager_based_rl_env.html#CustomManagerBasedRlEnv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mjlab.envs.CustomManagerBasedRlEnv" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mjlab.envs.ManagerBasedRlEnv" title="mjlab.envs.manager_based_rl_env.ManagerBasedRlEnv"><code class="xref py py-class docutils literal notranslate"><span class="pre">ManagerBasedRlEnv</span></code></a></p>
+<p>Custom environment that extends ManagerBasedRlEnv with additional functionality.</p>
+<p>This class allows you to override specific methods while maintaining compatibility
+with the base ManagerBasedRlEnv interface.</p>
+<p><strong>Methods:</strong></p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#mjlab.envs.CustomManagerBasedRlEnv.__init__" title="mjlab.envs.CustomManagerBasedRlEnv.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(cfg, device[, render_mode])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#mjlab.envs.CustomManagerBasedRlEnv.step" title="mjlab.envs.CustomManagerBasedRlEnv.step"><code class="xref py py-obj docutils literal notranslate"><span class="pre">step</span></code></a>(action)</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="mjlab.envs.CustomManagerBasedRlEnv.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mjlab.envs.ManagerBasedRlEnvCfg" title="mjlab.envs.manager_based_rl_env.ManagerBasedRlEnvCfg"><span class="pre">ManagerBasedRlEnvCfg</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">render_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/mjlab/envs/custom_manager_based_rl_env.html#CustomManagerBasedRlEnv.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mjlab.envs.CustomManagerBasedRlEnv.__init__" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mjlab.envs.CustomManagerBasedRlEnv.step">
+<span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">action</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/mjlab/envs/custom_manager_based_rl_env.html#CustomManagerBasedRlEnv.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mjlab.envs.CustomManagerBasedRlEnv.step" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 <dl class="py class">
 <dt class="sig sig-object py" id="mjlab.envs.ManagerBasedRlEnv">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mjlab.envs.</span></span><span class="sig-name descname"><span class="pre">ManagerBasedRlEnv</span></span><a class="reference internal" href="../../_modules/mjlab/envs/manager_based_rl_env.html#ManagerBasedRlEnv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mjlab.envs.ManagerBasedRlEnv" title="Link to this definition">#</a></dt>
@@ -606,7 +637,7 @@ document.write(`
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mjlab.envs.ManagerBasedRlEnv.metadata">
-<span class="sig-name descname"><span class="pre">metadata</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'mujoco_version':</span> <span class="pre">'3.4.1',</span> <span class="pre">'render_modes':</span> <span class="pre">[None,</span> <span class="pre">'rgb_array'],</span> <span class="pre">'warp_version':</span> <span class="pre">warp.config.version}</span></em><a class="headerlink" href="#mjlab.envs.ManagerBasedRlEnv.metadata" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">metadata</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'mujoco_version':</span> <span class="pre">'3.7.0',</span> <span class="pre">'render_modes':</span> <span class="pre">[None,</span> <span class="pre">'rgb_array'],</span> <span class="pre">'warp_version':</span> <span class="pre">warp.config.version}</span></em><a class="headerlink" href="#mjlab.envs.ManagerBasedRlEnv.metadata" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -909,37 +940,6 @@ relative changes to the reference motion. Defaults to False (absolute actions).<
 
 </dd></dl>
 
-<dl class="py class">
-<dt class="sig sig-object py" id="mjlab.envs.CustomManagerBasedRlEnv">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mjlab.envs.</span></span><span class="sig-name descname"><span class="pre">CustomManagerBasedRlEnv</span></span><a class="reference internal" href="../../_modules/mjlab/envs/custom_manager_based_rl_env.html#CustomManagerBasedRlEnv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mjlab.envs.CustomManagerBasedRlEnv" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#mjlab.envs.ManagerBasedRlEnv" title="mjlab.envs.manager_based_rl_env.ManagerBasedRlEnv"><code class="xref py py-class docutils literal notranslate"><span class="pre">ManagerBasedRlEnv</span></code></a></p>
-<p>Custom environment that extends ManagerBasedRlEnv with additional functionality.</p>
-<p>This class allows you to override specific methods while maintaining compatibility
-with the base ManagerBasedRlEnv interface.</p>
-<p><strong>Methods:</strong></p>
-<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#mjlab.envs.CustomManagerBasedRlEnv.__init__" title="mjlab.envs.CustomManagerBasedRlEnv.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(cfg, device[, render_mode])</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#mjlab.envs.CustomManagerBasedRlEnv.step" title="mjlab.envs.CustomManagerBasedRlEnv.step"><code class="xref py py-obj docutils literal notranslate"><span class="pre">step</span></code></a>(action)</p></td>
-<td><p></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<dl class="py method">
-<dt class="sig sig-object py" id="mjlab.envs.CustomManagerBasedRlEnv.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mjlab.envs.ManagerBasedRlEnvCfg" title="mjlab.envs.manager_based_rl_env.ManagerBasedRlEnvCfg"><span class="pre">ManagerBasedRlEnvCfg</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">render_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/mjlab/envs/custom_manager_based_rl_env.html#CustomManagerBasedRlEnv.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mjlab.envs.CustomManagerBasedRlEnv.__init__" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="mjlab.envs.CustomManagerBasedRlEnv.step">
-<span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">action</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/mjlab/envs/custom_manager_based_rl_env.html#CustomManagerBasedRlEnv.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mjlab.envs.CustomManagerBasedRlEnv.step" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
 </section>
 
 
@@ -987,6 +987,11 @@ with the base ManagerBasedRlEnv interface.</p>
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.CustomManagerBasedRlEnv"><code class="docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.CustomManagerBasedRlEnv.__init__"><code class="docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv.__init__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.CustomManagerBasedRlEnv.step"><code class="docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv.step()</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.ManagerBasedRlEnv"><code class="docutils literal notranslate"><span class="pre">ManagerBasedRlEnv</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.ManagerBasedRlEnv.is_vector_env"><code class="docutils literal notranslate"><span class="pre">ManagerBasedRlEnv.is_vector_env</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.ManagerBasedRlEnv.metadata"><code class="docutils literal notranslate"><span class="pre">ManagerBasedRlEnv.metadata</span></code></a></li>
@@ -1029,11 +1034,6 @@ with the base ManagerBasedRlEnv interface.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.ManagerBasedRlEnvCfg.__init__"><code class="docutils literal notranslate"><span class="pre">ManagerBasedRlEnvCfg.__init__()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.CustomManagerBasedRlEnv"><code class="docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.CustomManagerBasedRlEnv.__init__"><code class="docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv.__init__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mjlab.envs.CustomManagerBasedRlEnv.step"><code class="docutils literal notranslate"><span class="pre">CustomManagerBasedRlEnv.step()</span></code></a></li>
-</ul>
-</li>
 </ul>
   </nav></div>
 
@@ -1067,7 +1067,7 @@ By The mjlab Developers
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Feb 26, 2026.
+  Last updated on Mar 19, 2026.
   <br/>
 </p>
   </div>

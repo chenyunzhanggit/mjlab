@@ -56,7 +56,7 @@
     <link rel="search" title="Search" href="../../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-    <meta name="docbuild:last-update" content="Feb 26, 2026"/>
+    <meta name="docbuild:last-update" content="Mar 19, 2026"/>
   </head>
   
   
@@ -598,7 +598,7 @@ document.write(`
       <span class="n">cfg</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">num_envs</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span>
     <span class="p">)</span>
     <span class="c1"># Initialize max pull force for fall recovery curriculum</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">max_pull_force</span> <span class="o">=</span> <span class="mf">250.0</span>  <span class="c1"># Initial max pull force (Newtons)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">max_pull_force</span> <span class="o">=</span> <span class="mf">200.0</span>  <span class="c1"># Initial max pull force (Newtons)</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">render_mode</span> <span class="o">=</span> <span class="n">render_mode</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_offline_renderer</span><span class="p">:</span> <span class="n">OffscreenRenderer</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">render_mode</span> <span class="o">==</span> <span class="s2">&quot;rgb_array&quot;</span><span class="p">:</span>
@@ -716,7 +716,7 @@ document.write(`
     <span class="n">avg_height_diff</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
   <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Update the max pull force curriculum based on average height difference.</span>
-<span class="sd">    </span>
+
 <span class="sd">    Args:</span>
 <span class="sd">      avg_height_diff: Average height difference between target and actual height</span>
 <span class="sd">        for fall recovery environments.</span>
@@ -724,7 +724,7 @@ document.write(`
     <span class="c1"># Adaptive curriculum: adjust max_pull_force based on average height difference</span>
     <span class="k">if</span> <span class="n">avg_height_diff</span> <span class="o">&gt;</span> <span class="mf">0.4</span><span class="p">:</span>
       <span class="c1"># If average height difference &gt; 0.4, keep max force at 200</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">max_pull_force</span> <span class="o">=</span> <span class="mf">250.0</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">max_pull_force</span> <span class="o">=</span> <span class="mf">200.0</span>
     <span class="k">elif</span> <span class="n">avg_height_diff</span> <span class="o">&lt;</span> <span class="mf">0.4</span><span class="p">:</span>
       <span class="c1"># If average height difference &lt; 0.4, reduce max force by 0.99</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">max_pull_force</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_pull_force</span> <span class="o">*</span> <span class="mf">0.998</span>
@@ -736,7 +736,7 @@ document.write(`
         <span class="c1"># If average height difference &lt; 0.3, continue reducing by 0.99</span>
         <span class="c1"># No lower limit after this point</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_pull_force</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_pull_force</span> <span class="o">*</span> <span class="mf">0.998</span>
-    
+
     <span class="c1"># Log max_pull_force to extras</span>
     <span class="k">if</span> <span class="s2">&quot;log&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">extras</span><span class="p">:</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">extras</span><span class="p">[</span><span class="s2">&quot;log&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
@@ -747,10 +747,10 @@ document.write(`
     <span class="n">motion_cfg</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
   <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply pull force to fall recovery environments.</span>
-<span class="sd">    </span>
+
 <span class="sd">    Args:</span>
 <span class="sd">      motion_cfg: Motion command configuration.</span>
-<span class="sd">      </span>
+
 <span class="sd">    Returns:</span>
 <span class="sd">      Average height difference if fall recovery environments exist, None otherwise.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -759,21 +759,22 @@ document.write(`
       <span class="n">motion_cmd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">command_manager</span><span class="o">.</span><span class="n">get_term</span><span class="p">(</span><span class="s2">&quot;motion&quot;</span><span class="p">)</span>
       <span class="k">if</span> <span class="n">motion_cmd</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
-        
+
       <span class="c1"># Check if this is a MultiMotionCommand with fall recovery support</span>
       <span class="kn">from</span><span class="w"> </span><span class="nn">mjlab.tasks.tracking.mdp.multi_commands</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiMotionCommand</span>
+
       <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">motion_cmd</span><span class="p">,</span> <span class="n">MultiMotionCommand</span><span class="p">):</span>
         <span class="k">return</span> <span class="kc">None</span>
-        
+
       <span class="c1"># Get fall recovery mask from command instance</span>
       <span class="n">fall_recovery_mask</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">motion_cmd</span><span class="p">,</span> <span class="s2">&quot;init_fall_recovery_mask&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
       <span class="k">if</span> <span class="n">fall_recovery_mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
-        
+
       <span class="n">fall_recovery_env_ids</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">fall_recovery_mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
       <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fall_recovery_env_ids</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
-        
+
       <span class="c1"># Get robot entity from command instance</span>
       <span class="n">robot</span> <span class="o">=</span> <span class="n">motion_cmd</span><span class="o">.</span><span class="n">robot</span>
       <span class="c1"># Get base body index (use anchor body index) from command instance</span>
@@ -781,54 +782,53 @@ document.write(`
       <span class="c1"># Get actual and target heights for fall recovery environments</span>
       <span class="n">robot_anchor_pos_w</span> <span class="o">=</span> <span class="n">motion_cmd</span><span class="o">.</span><span class="n">robot_anchor_pos_w</span>
       <span class="n">anchor_pos_w</span> <span class="o">=</span> <span class="n">motion_cmd</span><span class="o">.</span><span class="n">anchor_pos_w</span>
-        
+
       <span class="n">actual_height</span> <span class="o">=</span> <span class="n">robot_anchor_pos_w</span><span class="p">[</span><span class="n">fall_recovery_env_ids</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
       <span class="n">target_height</span> <span class="o">=</span> <span class="n">anchor_pos_w</span><span class="p">[</span><span class="n">fall_recovery_env_ids</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
-      
+
       <span class="n">height_diff</span> <span class="o">=</span> <span class="n">target_height</span> <span class="o">-</span> <span class="n">actual_height</span>
       <span class="n">height_threshold</span> <span class="o">=</span> <span class="mf">0.2</span>
       <span class="n">need_force_mask</span> <span class="o">=</span> <span class="n">height_diff</span> <span class="o">&gt;</span> <span class="n">height_threshold</span>
 
       <span class="c1"># [NOTE] 先全部拉起</span>
-      <span class="n">need_force_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fall_recovery_env_ids</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-      
+      <span class="n">need_force_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">fall_recovery_env_ids</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span>
+      <span class="p">)</span>
+
       <span class="c1"># Calculate average height difference for fall recovery environments</span>
       <span class="n">avg_height_diff</span> <span class="o">=</span> <span class="n">height_diff</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-      
+
       <span class="c1"># Create force tensor for all fall recovery environments</span>
       <span class="n">num_fall_recovery</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">fall_recovery_env_ids</span><span class="p">)</span>
-      <span class="n">force_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">num_fall_recovery</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> 
-        <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span>
-      <span class="p">)</span>
-      
+      <span class="n">force_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_fall_recovery</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
       <span class="c1"># Sample random force values from 0 to max_pull_force</span>
       <span class="k">if</span> <span class="n">need_force_mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
         <span class="n">num_need_force</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">need_force_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
         <span class="c1"># Sample random force values (0 to max_pull_force)</span>
         <span class="n">random_force_values</span> <span class="o">=</span> <span class="n">sample_uniform</span><span class="p">(</span>
-          <span class="bp">self</span><span class="o">.</span><span class="n">max_pull_force</span><span class="o">/</span><span class="mf">2.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_pull_force</span><span class="p">,</span> <span class="p">(</span><span class="n">num_need_force</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">max_pull_force</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">,</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">max_pull_force</span><span class="p">,</span>
+          <span class="p">(</span><span class="n">num_need_force</span><span class="p">,),</span>
+          <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
         <span class="p">)</span>
-        
-        <span class="n">force_tensor</span><span class="p">[</span><span class="n">need_force_mask</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">random_force_values</span>
-      
-      <span class="c1"># Apply zero torque</span>
-      <span class="n">torque_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">num_fall_recovery</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
-        <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span>
-      <span class="p">)</span>
 
-      <span class="c1"># for play </span>
+        <span class="n">force_tensor</span><span class="p">[</span><span class="n">need_force_mask</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">random_force_values</span>
+
+      <span class="c1"># Apply zero torque</span>
+      <span class="n">torque_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_fall_recovery</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+      <span class="c1"># for play</span>
       <span class="c1"># force_tensor = force_tensor * 0.0</span>
       <span class="c1"># torque_tensor = torque_tensor * 0.0</span>
       <span class="c1"># print(&quot;force_tensor: &quot;, force_tensor)</span>
       <span class="c1"># print(&quot;torque_tensor: &quot;, torque_tensor)</span>
 
       <span class="n">robot</span><span class="o">.</span><span class="n">write_external_wrench_to_sim</span><span class="p">(</span>
-        <span class="n">force_tensor</span><span class="p">,</span> 
-        <span class="n">torque_tensor</span><span class="p">,</span> 
+        <span class="n">force_tensor</span><span class="p">,</span>
+        <span class="n">torque_tensor</span><span class="p">,</span>
         <span class="n">env_ids</span><span class="o">=</span><span class="n">fall_recovery_env_ids</span><span class="p">,</span>
-        <span class="n">body_ids</span><span class="o">=</span><span class="p">[</span><span class="n">base_body_index</span><span class="p">]</span>
+        <span class="n">body_ids</span><span class="o">=</span><span class="p">[</span><span class="n">base_body_index</span><span class="p">],</span>
       <span class="p">)</span>
       <span class="c1"># print(&quot;force_tensor: &quot;, force_tensor)</span>
       <span class="k">return</span> <span class="n">avg_height_diff</span>
@@ -872,10 +872,11 @@ document.write(`
         <span class="n">end</span> <span class="o">=</span> <span class="p">(</span><span class="n">history_steps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">joint_dim</span>
         <span class="n">policy_obs</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">obs_buf</span><span class="p">[</span><span class="s2">&quot;policy&quot;</span><span class="p">])</span>
         <span class="n">command_current_joint_pos</span> <span class="o">=</span> <span class="n">policy_obs</span><span class="p">[:,</span> <span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
-        <span class="c1"># [NOTE] * 0.25 to accelerate the exploring process, as the output is the delta action on command. </span>
+        <span class="c1"># [NOTE] * 0.25 to accelerate the exploring process, as the output is the delta action on command.</span>
         <span class="n">action</span> <span class="o">=</span> <span class="n">action</span> <span class="o">*</span> <span class="mf">0.25</span> <span class="o">+</span> <span class="n">command_current_joint_pos</span>
       <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
         <span class="k">pass</span>
+
     <span class="bp">self</span><span class="o">.</span><span class="n">action_manager</span><span class="o">.</span><span class="n">process_action</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
 
     <span class="c1"># Track average height difference for curriculum update</span>
@@ -890,7 +891,7 @@ document.write(`
       <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">motion_cfg</span><span class="p">,</span> <span class="s2">&quot;fall_recovery_ratio&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_fall_recovery_pull_force</span><span class="p">(</span><span class="n">motion_cfg</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-          <span class="n">avg_height_diff</span> <span class="o">=</span> <span class="n">result</span> 
+          <span class="n">avg_height_diff</span> <span class="o">=</span> <span class="n">result</span>
     <span class="c1"># Update env counters.</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">episode_length_buf</span> <span class="o">+=</span> <span class="mi">1</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">common_step_counter</span> <span class="o">+=</span> <span class="mi">1</span>
@@ -1093,7 +1094,7 @@ By The mjlab Developers
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Feb 26, 2026.
+  Last updated on Mar 19, 2026.
   <br/>
 </p>
   </div>
