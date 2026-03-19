@@ -262,6 +262,16 @@ def unitree_g1_student_env_cfg(play: bool = False):
       params={"command_name": "motion"},
       noise=Unoise(n_min=-0.5, n_max=0.5),
     ),
+    "motion_ref_ang_vel": ObservationTermCfg(
+      func=student_obs.motion_ref_ang_vel_current,
+      params={"command_name": "motion"},
+      noise=Unoise(n_min=-0.2, n_max=0.2),
+    ),
+    "motion_ref_anchor_height": ObservationTermCfg(
+      func=student_obs.ref_anchor_height,
+      params={"command_name": "motion"},
+      noise=Unoise(n_min=-0.03, n_max=0.03),
+    ),
     # Left + right wrist_yaw_link positions in torso frame: 6D
     "hand_pos_b": ObservationTermCfg(
       func=student_obs.ref_hand_pos_b,
@@ -270,6 +280,18 @@ def unitree_g1_student_env_cfg(play: bool = False):
         "hand_body_names": (
           "left_wrist_yaw_link",
           "right_wrist_yaw_link",
+        ),
+      },
+      noise=Unoise(n_min=-0.05, n_max=0.05),
+    ),
+    # zjk: add ankle_roll_link pos in torso frame: 6D
+    "foot_pos_b": ObservationTermCfg(
+      func=student_obs.ref_foot_pos_b,
+      params={
+        "command_name": "motion",
+        "foot_body_names": (
+          "left_ankle_roll_link",
+          "right_ankle_roll_link",
         ),
       },
       noise=Unoise(n_min=-0.05, n_max=0.05),
