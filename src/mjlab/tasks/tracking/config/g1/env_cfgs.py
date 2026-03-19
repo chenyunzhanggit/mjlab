@@ -274,7 +274,7 @@ def unitree_g1_student_env_cfg(play: bool = False):
     ),
     # Left + right wrist_yaw_link positions in torso frame: 6D
     "hand_pos_b": ObservationTermCfg(
-      func=student_obs.ref_hand_pos_b,
+      func=student_obs.motion_ref_hand_pos_b,
       params={
         "command_name": "motion",
         "hand_body_names": (
@@ -286,7 +286,7 @@ def unitree_g1_student_env_cfg(play: bool = False):
     ),
     # zjk: add ankle_roll_link pos in torso frame: 6D
     "foot_pos_b": ObservationTermCfg(
-      func=student_obs.ref_foot_pos_b,
+      func=student_obs.motion_ref_foot_pos_b,
       params={
         "command_name": "motion",
         "foot_body_names": (

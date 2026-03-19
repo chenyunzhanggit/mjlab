@@ -139,9 +139,7 @@ class MotionTrackingDistillationRunner(MotionTrackingOnPolicyRunner):
 
           teacher_actions_buf[step].copy_(self._teacher_action_mean(obs["policy"]))
           student_obs_buf[step].copy_(s_obs)
-          import ipdb
 
-          ipdb.set_trace()
           obs, rewards, dones, extras = self.env.step(actions.to(self.env.device))  # type: ignore[union-attr]
           obs, rewards, dones = (
             obs.to(self.device),
