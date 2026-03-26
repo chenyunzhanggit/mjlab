@@ -56,7 +56,7 @@
     <link rel="search" title="Search" href="../../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-    <meta name="docbuild:last-update" content="Mar 19, 2026"/>
+    <meta name="docbuild:last-update" content="Mar 26, 2026"/>
   </head>
   
   
@@ -606,6 +606,12 @@ document.write(`
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_terms</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">command_joint_pos</span></div>
 
 
+<div class="viewcode-block" id="CommandManager.get_command_joint_vel">
+<a class="viewcode-back" href="../../../source/api/managers.html#mjlab.managers.CommandManager.get_command_joint_vel">[docs]</a>
+  <span class="k">def</span><span class="w"> </span><span class="nf">get_command_joint_vel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_terms</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">command_joint_vel</span></div>
+
+
 <div class="viewcode-block" id="CommandManager.get_term">
 <a class="viewcode-back" href="../../../source/api/managers.html#mjlab.managers.CommandManager.get_term">[docs]</a>
   <span class="k">def</span><span class="w"> </span><span class="nf">get_term</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CommandTerm</span><span class="p">:</span>
@@ -743,7 +749,7 @@ By The mjlab Developers
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Mar 19, 2026.
+  Last updated on Mar 26, 2026.
   <br/>
 </p>
   </div>

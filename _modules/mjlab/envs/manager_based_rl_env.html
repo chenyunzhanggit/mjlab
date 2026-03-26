@@ -56,7 +56,7 @@
     <link rel="search" title="Search" href="../../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-    <meta name="docbuild:last-update" content="Mar 19, 2026"/>
+    <meta name="docbuild:last-update" content="Mar 26, 2026"/>
   </head>
   
   
@@ -861,8 +861,11 @@ document.write(`
 <a class="viewcode-back" href="../../../source/api/envs.html#mjlab.envs.ManagerBasedRlEnv.step">[docs]</a>
   <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">types</span><span class="o">.</span><span class="n">VecEnvStepReturn</span><span class="p">:</span>
     <span class="n">action</span> <span class="o">=</span> <span class="n">action</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-    <span class="c1"># get the motion command configuration</span>
-    <span class="n">motion_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">command_manager</span><span class="o">.</span><span class="n">get_term_cfg</span><span class="p">(</span><span class="s2">&quot;motion&quot;</span><span class="p">)</span>
+    <span class="c1"># get the motion command configuration (optional — not all envs have a motion command)</span>
+    <span class="k">try</span><span class="p">:</span>
+      <span class="n">motion_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">command_manager</span><span class="o">.</span><span class="n">get_term_cfg</span><span class="p">(</span><span class="s2">&quot;motion&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+      <span class="n">motion_cfg</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">use_delta_action</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">command_manager</span><span class="p">,</span> <span class="n">CommandManager</span><span class="p">):</span>
       <span class="k">try</span><span class="p">:</span>
         <span class="c1"># command_current_joint_pos = self.command_manager.get_command_joint_pos_current(&quot;motion&quot;)  # 到 compute_obs 的时候 current joint_pos command 是下一帧了</span>
@@ -1094,7 +1097,7 @@ By The mjlab Developers
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Mar 19, 2026.
+  Last updated on Mar 26, 2026.
   <br/>
 </p>
   </div>
