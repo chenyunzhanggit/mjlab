@@ -17,6 +17,10 @@ from .env_cfgs import (
 from .env_cfgs import (
   unitree_g1_teleoperation_env_cfg as unitree_g1_teleoperation_env_cfg,
 )
+from .env_cfgs import (
+  unitree_g1_teacher_env_cfg as unitree_g1_teacher_env_cfg,
+)
+
 from .rl_cfg import (
   unitree_g1_student_distill_runner_cfg as unitree_g1_student_distill_runner_cfg,
 )
@@ -25,6 +29,9 @@ from .rl_cfg import (
 )
 from .rl_cfg import (
   unitree_g1_teleoperation_ppo_runner_cfg as unitree_g1_teleoperation_ppo_runner_cfg,
+)
+from .rl_cfg import (
+  unitree_g1_teacher_ppo_runner_cfg as unitree_g1_teacher_ppo_runner_cfg,
 )
 from .rl_cfg import (
   unitree_g1_tracking_ppo_runner_cfg as unitree_g1_tracking_ppo_runner_cfg,
@@ -65,6 +72,14 @@ register_mjlab_task(
   ),
   rl_cfg=unitree_g1_teleoperation_amp_runner_cfg(),
   runner_cls=AmpMotionTrackingOnPolicyRunner,
+)
+
+register_mjlab_task(
+  task_id="Mjlab-Tracking-Teacher-Unitree-G1",
+  env_cfg=unitree_g1_teacher_env_cfg(has_state_estimation=False),
+  play_env_cfg=unitree_g1_teacher_env_cfg(has_state_estimation=False, play=True),
+  rl_cfg=unitree_g1_teacher_ppo_runner_cfg(),
+  runner_cls=MotionTrackingOnPolicyRunner,
 )
 
 register_mjlab_task(

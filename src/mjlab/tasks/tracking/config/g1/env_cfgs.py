@@ -13,7 +13,9 @@ from mjlab.tasks.tracking.mdp import MotionCommandCfg, MultiMotionCommandCfg
 from mjlab.tasks.tracking.tracking_env_cfg import (
   make_teleoperation_env_cfg,
   make_tracking_env_cfg,
+  make_teacher_env_cfg,
 )
+from mjlab.tasks.velocity.mdp.observations import robot_base_height
 
 
 def unitree_g1_flat_tracking_env_cfg(
@@ -241,6 +243,96 @@ def unitree_g1_teleoperation_env_cfg(
   return cfg
 
 
+
+def unitree_g1_teacher_env_cfg(
+  has_state_estimation: bool = True,
+  play: bool = False,
+) -> ManagerBasedRlEnvCfg:
+  """Create Unitree G1 flat terrain tracking configuration."""
+  cfg = make_teacher_env_cfg()
+
+  cfg.scene.entities = {"robot": get_g1_robot_cfg()}
+
+  self_collision_cfg = ContactSensorCfg(
+    name="self_collision",
+    primary=ContactMatch(mode="subtree", pattern="pelvis", entity="robot"),
+    secondary=ContactMatch(mode="subtree", pattern="pelvis", entity="robot"),
+    fields=("found",),
+    reduce="none",
+    num_slots=1,
+  )
+  cfg.scene.sensors = (self_collision_cfg,)
+
+  joint_pos_action = cfg.actions["joint_pos"]
+  assert isinstance(joint_pos_action, JointPositionActionCfg)
+  joint_pos_action.scale = G1_ACTION_SCALE
+
+  motion_cmd = cfg.commands["motion"]
+
+  assert isinstance(motion_cmd, MultiMotionCommandCfg)
+  motion_cmd.anchor_body_name = "torso_link"
+  motion_cmd.body_names = (
+    "pelvis",
+    "left_hip_roll_link",
+    "left_knee_link",
+    "left_ankle_roll_link",
+    "right_hip_roll_link",
+    "right_knee_link",
+    "right_ankle_roll_link",
+    "torso_link",
+    "left_shoulder_roll_link",
+    "left_elbow_link",
+    "left_wrist_yaw_link",
+    "right_shoulder_roll_link",
+    "right_elbow_link",
+    "right_wrist_yaw_link",
+  )
+
+  cfg.events["foot_friction"].params[
+    "asset_cfg"
+  ].geom_names = r"^(left|right)_foot[1-7]_collision$"
+  cfg.events["base_com"].params["asset_cfg"].body_names = ("torso_link",)
+
+  cfg.terminations["ee_body_pos"].params["body_names"] = (
+    "left_ankle_roll_link",
+    "right_ankle_roll_link",
+    "left_wrist_yaw_link",
+    "right_wrist_yaw_link",
+  )
+
+  cfg.viewer.body_name = "torso_link"
+
+  # Modify observations if we don't have state estimation.
+  if not has_state_estimation:
+    new_policy_terms = {
+      k: v
+      for k, v in cfg.observations["policy"].terms.items()
+      if k not in ["motion_anchor_pos_b", "base_lin_vel"]
+    }
+    cfg.observations["policy"] = ObservationGroupCfg(
+      terms=new_policy_terms,
+      concatenate_terms=True,
+      enable_corruption=True,
+    )
+
+  # Apply play mode overrides.
+  if play:
+    # Effectively infinite episode length.
+    cfg.episode_length_s = int(1e9)
+    motion_cmd.fall_recovery_ratio = 0.0
+    cfg.observations["policy"].enable_corruption = False
+    cfg.events.pop("push_robot", None)
+
+    # Disable RSI randomization.
+    motion_cmd.pose_range = {}
+    motion_cmd.velocity_range = {}
+
+    motion_cmd.sampling_mode = "start"
+
+  return cfg
+
+
+
 def unitree_g1_student_env_cfg(play: bool = False):
   """Create the student distillation environment configuration.
 
@@ -258,14 +350,14 @@ def unitree_g1_student_env_cfg(play: bool = False):
   student_terms = {
     # # Current-step reference anchor linear velocity: 3D
     "motion_ref_vel": ObservationTermCfg(
-      func=student_obs.motion_ref_vel_current,
+      func=student_obs.motion_ref_vel_xy,
       params={"command_name": "motion"},
-      noise=Unoise(n_min=-0.5, n_max=0.5),
+      noise=Unoise(n_min=-0.1, n_max=0.1),
     ),
     "motion_ref_ang_vel": ObservationTermCfg(
-      func=student_obs.motion_ref_ang_vel_current,
+      func=student_obs.motion_ref_ang_vel_z,
       params={"command_name": "motion"},
-      noise=Unoise(n_min=-0.2, n_max=0.2),
+      noise=Unoise(n_min=-0.05, n_max=0.05),
     ),
     "motion_ref_anchor_height": ObservationTermCfg(
       func=student_obs.ref_anchor_height,
@@ -282,19 +374,19 @@ def unitree_g1_student_env_cfg(play: bool = False):
           "right_wrist_yaw_link",
         ),
       },
-      noise=Unoise(n_min=-0.05, n_max=0.05),
+      noise=Unoise(n_min=-0.02, n_max=0.02),
     ),
-    # zjk: add ankle_roll_link pos in torso frame: 6D
-    "foot_pos_b": ObservationTermCfg(
-      func=student_obs.motion_ref_foot_pos_b,
+    # Left + right wrist_yaw_link orientations in torso frame: 12D
+    "hand_ori_b": ObservationTermCfg(
+      func=student_obs.motion_ref_hand_ori_b,
       params={
         "command_name": "motion",
-        "foot_body_names": (
-          "left_ankle_roll_link",
-          "right_ankle_roll_link",
+        "hand_body_names": (
+          "left_wrist_yaw_link",
+          "right_wrist_yaw_link",
         ),
       },
-      noise=Unoise(n_min=-0.05, n_max=0.05),
+      noise=Unoise(n_min=-0.02, n_max=0.02),
     ),
     # IMU gravity orientation with 5-step history: 15D
     "projected_gravity": ObservationTermCfg(
@@ -327,70 +419,61 @@ def unitree_g1_student_env_cfg(play: bool = False):
       func=mdp.last_action,
       history_length=5,
     ),
-    ######################## all obs for test code ########################
-    # "commands_joint_pos_only": ObservationTermCfg(
-    #   func=mdp.generated_commands_joint_pos,
-    #   params={"command_name": "motion"},
-    #   noise=Unoise(n_min=-0.1, n_max=0.1),
-    # ),
-    # # ref anchor vel
-    # "motion_anchor_vel_w": ObservationTermCfg(
-    #   func=mdp.motion_anchor_vel_w,
-    #   params={"command_name": "motion"},
-    #   noise=Unoise(
-    #     n_min=(-0.5, -0.5, -0.2) * 10,
-    #     n_max=(0.5, 0.5, 0.2) * 10,
-    #   ),
-    # ),
-    # # ref anchor ori  OR ref projected_gravity?
-    # "motion_anchor_projected_gravity": ObservationTermCfg(
-    #   func=mdp.motion_anchor_projected_gravity,
-    #   params={"command_name": "motion"},
-    #   noise=Unoise(n_min=-0.1, n_max=0.1),
-    # ),
-    # # ref anchor ang vel
-    # "motion_anchor_ang_vel_w": ObservationTermCfg(
-    #   func=mdp.motion_anchor_ang_vel_w,
-    #   params={"command_name": "motion"},
-    #   noise=Unoise(
-    #     n_min=(-0.52, -0.52, -0.78) * 10,
-    #     n_max=(0.52, 0.52, 0.78) * 10,
-    #   ),
-    # ),
-    # # """ proprioceptive observations add history steps 5 frames? """
-    # # proprioceptive observations
-    # "projected_gravity": ObservationTermCfg(
-    #   func=mdp.projected_gravity,
-    #   noise=Unoise(n_min=-0.1, n_max=0.1),
-    #   history_length=5,
-    # ),
-    # "base_ang_vel": ObservationTermCfg(
-    #   func=mdp.builtin_sensor,
-    #   params={"sensor_name": "robot/imu_ang_vel"},
-    #   noise=Unoise(n_min=-0.2, n_max=0.2),
-    #   history_length=5,
-    # ),
-    # "joint_pos": ObservationTermCfg(
-    #   func=mdp.joint_pos_rel,
-    #   noise=Unoise(n_min=-0.01, n_max=0.01),
-    #   params={"biased": True},
-    #   history_length=5,
-    # ),
-    # "joint_vel": ObservationTermCfg(
-    #   func=mdp.joint_vel_rel,
-    #   noise=Unoise(n_min=-1.5, n_max=1.5),
-    #   history_length=5,
-    # ),
-    # "actions": ObservationTermCfg(
-    #   func=mdp.last_action,
-    #   history_length=5,
-    # ),
   }
 
   cfg.observations["student"] = ObservationGroupCfg(
     terms=student_terms,
     concatenate_terms=True,
     enable_corruption=True,
+  )
+
+  # ── Override critic to match post-training structure ──────────────────────
+  critic_terms = {
+    # Task commands (2D + 1D + 1D + 6D = 10D)
+    "motion_ref_vel": ObservationTermCfg(
+      func=student_obs.motion_ref_vel_xy,
+      params={"command_name": "motion"},
+    ),  # 2D
+    "motion_ref_ang_vel": ObservationTermCfg(
+      func=student_obs.motion_ref_ang_vel_z,
+      params={"command_name": "motion"},
+    ),  # 1D
+    "height_cmd": ObservationTermCfg(
+      func=student_obs.ref_anchor_height,
+      params={"command_name": "motion"},
+    ),  # 1D
+    "hand_pos_cmd": ObservationTermCfg(
+      func=student_obs.motion_ref_hand_pos_b,
+      params={
+        "command_name": "motion",
+        "hand_body_names": ("left_wrist_yaw_link", "right_wrist_yaw_link"),
+      },
+    ),  # 6D
+    "hand_ori_cmd": ObservationTermCfg(
+      func=student_obs.motion_ref_hand_ori_b,
+      params={
+        "command_name": "motion",
+        "hand_body_names": ("left_wrist_yaw_link", "right_wrist_yaw_link"),
+      },
+    ),  # 12D
+    # Pelvis height (1D)
+    "base_height": ObservationTermCfg(func=robot_base_height),  # 1D
+    # Proprioception (3D + 3D + 3D + 29D + 29D + 29D = 96D)
+    "projected_gravity": ObservationTermCfg(func=mdp.projected_gravity),  # 3D
+    "base_lin_vel": ObservationTermCfg(
+      func=mdp.builtin_sensor, params={"sensor_name": "robot/imu_lin_vel"}
+    ),
+    "base_ang_vel": ObservationTermCfg(
+      func=mdp.builtin_sensor, params={"sensor_name": "robot/imu_ang_vel"}
+    ),
+    "joint_pos": ObservationTermCfg(func=mdp.joint_pos_rel),
+    "joint_vel": ObservationTermCfg(func=mdp.joint_vel_rel),
+    "actions": ObservationTermCfg(func=mdp.last_action),
+  }
+  cfg.observations["critic"] = ObservationGroupCfg(
+    terms=critic_terms,
+    concatenate_terms=True,
+    enable_corruption=False,
   )
 
   return cfg

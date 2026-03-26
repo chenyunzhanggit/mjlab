@@ -185,3 +185,185 @@ def unitree_g1_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     twist_cmd.ranges.ang_vel_z = (-0.7, 0.7)
 
   return cfg
+
+
+def unitree_g1_post_train_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+  """Post-training env for the distilled student policy on flat terrain.
+
+  The student obs interface is preserved exactly but motion-reference observations
+  are replaced with randomly sampled commands:
+
+  * ``motion_ref_vel``         ← xy velocity from the ``twist`` command (2D)
+  * ``motion_ref_ang_vel``     ← yaw rate from the ``twist`` command (1D)
+  * ``motion_ref_anchor_height`` ← nominal torso height from ``hand_pose`` cmd (1D)
+  * ``hand_pos_b``             ← random target hand positions from ``hand_pose`` cmd (6D)
+
+  The remaining obs (projected_gravity, base_ang_vel, joint_pos, joint_vel, actions)
+  are identical to the student training env (with the same history lengths / noise).
+  """
+  from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
+  from mjlab.tasks.velocity.mdp import (
+    RandomBaseHeightCommandCfg,
+    RandomHandPoseCommandCfg,
+  )
+  from mjlab.utils.noise import UniformNoiseCfg as Unoise
+
+  cfg = unitree_g1_flat_env_cfg(play=play)
+
+  # ── Add hand pose command ────────────────────────────────────────────────
+  cfg.commands["hand_pose"] = RandomHandPoseCommandCfg(
+    resampling_time_range=(4.0, 7.0),
+    debug_vis=True,
+    ranges=RandomHandPoseCommandCfg.Ranges(
+      left_x=(0.0, 0.28),
+      left_y=(0.0, 0.40),
+      left_z=(0.0, 0.45),
+      right_x=(0.0, 0.28),
+      right_y=(-0.40, 0.0),
+      right_z=(0.0, 0.45),
+    ),
+  )
+
+  # ── Add base height command ──────────────────────────────────────────────
+  cfg.commands["base_height"] = RandomBaseHeightCommandCfg(
+    resampling_time_range=(4.0, 7.0),
+    randomize=True,
+    height_range=(0.50, 0.80),
+  )
+
+  # ── Student policy obs group ─────────────────────────────────────────────
+  # Obs names and dims match the distilled student policy exactly.
+  student_terms = {
+    # velocity commands replacing motion reference (2D + 1D + 1D = 4D)
+    "cmd_lin_xy": ObservationTermCfg(
+      func=mdp.twist_vel_xy,
+      params={"command_name": "twist"},
+    ),
+    "cmd_ang_z": ObservationTermCfg(
+      func=mdp.twist_ang_vel_z,
+      params={"command_name": "twist"},
+    ),
+    "cmd_base_height": ObservationTermCfg(
+      func=mdp.target_anchor_height,
+      params={"command_name": "base_height"},
+      noise=Unoise(n_min=-0.04, n_max=0.04),
+    ),
+    # random hand targets replacing motion reference hand pos (6D)
+    "cmd_hand_pos_b": ObservationTermCfg(
+      func=mdp.random_hand_pos_b,
+      params={"command_name": "hand_pose"},
+      noise=Unoise(n_min=-0.02, n_max=0.02),
+    ),
+    # random hand targets replacing motion reference hand ori (12D)
+    # "cmd_hand_ori_b": ObservationTermCfg(
+    #   func=mdp.random_hand_ori_b,
+    #   params={"command_name": "hand_pose"},
+    #   noise=Unoise(n_min=-0.02, n_max=0.02),
+    # ),
+    # proprioception with 5-step history — identical to student training
+    "projected_gravity": ObservationTermCfg(
+      func=mdp.projected_gravity,
+      noise=Unoise(n_min=-0.1, n_max=0.1),
+      history_length=5,
+    ),
+    "base_ang_vel": ObservationTermCfg(
+      func=mdp.builtin_sensor,
+      params={"sensor_name": "robot/imu_ang_vel"},
+      noise=Unoise(n_min=-0.2, n_max=0.2),
+      history_length=5,
+    ),
+    "joint_pos": ObservationTermCfg(
+      func=mdp.joint_pos_rel,
+      noise=Unoise(n_min=-0.01, n_max=0.01),
+      params={"biased": True},
+      history_length=5,
+    ),
+    "joint_vel": ObservationTermCfg(
+      func=mdp.joint_vel_rel,
+      noise=Unoise(n_min=-1.5, n_max=1.5),
+      history_length=5,
+    ),
+    "actions": ObservationTermCfg(
+      func=mdp.last_action,
+      history_length=5,
+    ),
+  }
+
+  cfg.observations["student"] = ObservationGroupCfg(
+    terms=student_terms,
+    concatenate_terms=True,
+    enable_corruption=not play,
+  )
+
+  # ── Critic obs: task-command + privileged body state ─────────────────────
+  # Dim = 2 + 1 + 6 + 1 + 1 + 3 + 3 + 3 + 29 + 29 + 29 = 107D
+  # Matches the distillation critic structure so weights transfer cleanly.
+  critic_terms = {
+    # Task commands (2D + 1D + 6D + 1D = 10D)
+    "cmd_lin_xy": ObservationTermCfg(
+      func=mdp.twist_vel_xy, params={"command_name": "twist"}
+    ),  # 2D
+    "cmd_ang_z": ObservationTermCfg(
+      func=mdp.twist_ang_vel_z, params={"command_name": "twist"}
+    ),  # 1D
+    "cmd_base_height": ObservationTermCfg(
+      func=mdp.target_anchor_height, params={"command_name": "base_height"}
+    ),  # 1D
+    "cmd_hand_pos_b": ObservationTermCfg(
+      func=mdp.random_hand_pos_b, params={"command_name": "hand_pose"}
+    ),  # 6D
+    # "cmd_hand_ori_b": ObservationTermCfg(
+    #   func=mdp.random_hand_ori_b, params={"command_name": "hand_pose"}
+    # ),  # 12D
+    # Pelvis height (1D)
+    "base_height": ObservationTermCfg(func=mdp.robot_base_height),  # 1D
+    # Proprioception (3D + 3D + 3D + 29D + 29D + 29D = 96D)
+    "projected_gravity": ObservationTermCfg(func=mdp.projected_gravity),  # 3D
+    "base_lin_vel": ObservationTermCfg(
+      func=mdp.builtin_sensor, params={"sensor_name": "robot/imu_lin_vel"}
+    ),
+    "base_ang_vel": ObservationTermCfg(
+      func=mdp.builtin_sensor, params={"sensor_name": "robot/imu_ang_vel"}
+    ),
+    "joint_pos": ObservationTermCfg(func=mdp.joint_pos_rel),
+    "joint_vel": ObservationTermCfg(func=mdp.joint_vel_rel),
+    "actions": ObservationTermCfg(func=mdp.last_action),
+  }
+  cfg.observations["critic"] = ObservationGroupCfg(
+    terms=critic_terms,
+    concatenate_terms=True,
+    enable_corruption=False,
+  )
+
+  # ── Loco-mani tracking rewards ───────────────────────────────────────────
+  cfg.rewards["track_base_height"] = RewardTermCfg(
+    func=mdp.track_base_height,
+    weight=1.0,
+    params={
+      "std": 0.1,
+      "command_name": "base_height",
+      "body_name": "pelvis",
+    },
+  )
+  cfg.rewards["track_ee_pos"] = RewardTermCfg(
+    func=mdp.track_ee_pos,
+    weight=1.0,
+    params={
+      "std": 0.2,
+      "command_name": "hand_pose",
+      "anchor_body_name": "torso_link",
+      "hand_body_names": ("left_wrist_yaw_link", "right_wrist_yaw_link"),
+    },
+  )
+  cfg.rewards["track_ee_ori"] = RewardTermCfg(
+    func=mdp.track_ee_ori,
+    weight=0.0,
+    params={
+      "std": 0.3,
+      "command_name": "hand_pose",
+      "anchor_body_name": "torso_link",
+      "hand_body_names": ("left_wrist_yaw_link", "right_wrist_yaw_link"),
+    },
+  )
+
+  return cfg

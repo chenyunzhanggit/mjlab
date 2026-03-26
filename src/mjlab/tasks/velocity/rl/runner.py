@@ -38,3 +38,60 @@ class VelocityOnPolicyRunner(MjlabOnPolicyRunner):
     )
     if self.logger_type in ["wandb"]:
       wandb.save(policy_path + filename, base_path=os.path.dirname(policy_path))
+
+
+class LocoManiOnPolicyRunner(VelocityOnPolicyRunner):
+  """Runner for loco-mani post-training from a distilled checkpoint.
+
+  Overrides ``load()`` to reset the actor obs normalizer and action noise std,
+  which are invalid when loading a distillation checkpoint (trained with MSE
+  loss on a different obs distribution).
+  """
+
+  def load(
+    self, path: str, load_optimizer: bool = True, map_location: str | None = None
+  ):
+    from_distillation = self.cfg.get("from_distillation", False)
+
+    if not from_distillation:
+      # Normal play/resume — load everything as-is.
+      return super().load(
+        path, load_optimizer=load_optimizer, map_location=map_location
+      )
+
+    import math
+
+    import torch
+
+    # --- Distillation checkpoint resets below ---
+    # Save freshly-initialised normalizer state before loading checkpoint.
+    policy = self.alg.policy
+    fresh_state = {
+      k: v.clone()
+      for k, v in policy.state_dict().items()
+      if k.startswith("actor_obs_normalizer")
+    }
+
+    # Don't load the distillation optimizer — its Adam momentum is trained
+    # on MSE loss and would produce destructive PPO gradient steps.
+    infos = super().load(path, load_optimizer=False, map_location=map_location)
+
+    # Restore fresh actor_obs_normalizer (wrong obs distribution —
+    # motion reference vs twist/hand-pose commands).
+    with torch.no_grad():
+      policy.load_state_dict(fresh_state, strict=False)
+    print(
+      "[LocoManiRunner] Re-initialised actor_obs_normalizer (from_distillation=True)"
+    )
+
+    # Reset action noise std after loading a distilled checkpoint whose
+    # std was never trained (stuck at init_noise_std=1.0).
+    target_std = self.policy_cfg.get("init_noise_std", 0.05)
+    with torch.no_grad():
+      if hasattr(policy, "log_std"):
+        policy.log_std.fill_(math.log(target_std))
+        print(f"[LocoManiRunner] Reset action log_std to {target_std}")
+      elif hasattr(policy, "std"):
+        policy.std.fill_(target_std)
+        print(f"[LocoManiRunner] Reset action std to {target_std}")
+    return infos

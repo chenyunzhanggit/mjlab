@@ -579,6 +579,10 @@ class MultiMotionCommand(CommandTerm):
     return self.motion_joint_pos
 
   @property
+  def command_joint_vel(self) -> torch.Tensor:
+    return self.motion_joint_vel
+
+  @property
   def command_current_joint_pos(self) -> torch.Tensor:
     return self.current_motion_joint_pos
 

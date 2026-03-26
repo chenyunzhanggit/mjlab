@@ -288,7 +288,10 @@ class MotionTrackingDistillationRunner(MotionTrackingOnPolicyRunner):
     ).to(self.device)
 
     ckpt = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
-    teacher.load_state_dict(ckpt["model_state_dict"])
+    state_dict = {
+      k: v for k, v in ckpt["model_state_dict"].items() if not k.startswith("critic")
+    }
+    teacher.load_state_dict(state_dict, strict=False)
     teacher.eval()
     for param in teacher.parameters():
       param.requires_grad_(False)

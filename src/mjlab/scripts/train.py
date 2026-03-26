@@ -126,9 +126,14 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
         )
     else:
       # Load checkpoint from local filesystem.
-      resume_path = get_checkpoint_path(
-        log_root_path, cfg.agent.load_run, cfg.agent.load_checkpoint
-      )
+      # If load_run is a direct path to a .pt file, use it as-is.
+      direct = Path(cfg.agent.load_run)
+      if direct.is_file():
+        resume_path = direct
+      else:
+        resume_path = get_checkpoint_path(
+          log_root_path, cfg.agent.load_run, cfg.agent.load_checkpoint
+        )
 
   # Only record videos on rank 0 to avoid multiple workers writing to the same files.
   if cfg.video and rank == 0:

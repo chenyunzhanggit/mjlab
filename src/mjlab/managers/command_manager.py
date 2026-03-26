@@ -174,6 +174,9 @@ class CommandManager(ManagerBase):
   def get_command_joint_pos(self, name: str) -> torch.Tensor:
     return self._terms[name].command_joint_pos
 
+  def get_command_joint_vel(self, name: str) -> torch.Tensor:
+    return self._terms[name].command_joint_vel
+
   def get_term(self, name: str) -> CommandTerm:
     return self._terms[name]
 

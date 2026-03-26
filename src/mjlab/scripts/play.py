@@ -199,8 +199,33 @@ def run_play(task_id: str, cfg: PlayConfig):
   else:
     resolved_viewer = cfg.viewer
 
+  # Set up keyboard velocity control for tasks with a "twist" command.
+  kb_controller = None
+  if resolved_viewer == "native" and "twist" in env_cfg.commands:
+    from mjlab.tasks.velocity.mdp.velocity_command import UniformVelocityCommand
+    from mjlab.viewer.keyboard_velocity_controller import KeyboardVelocityController
+
+    twist_cmd = env.unwrapped.command_manager.get_term("twist")
+    if isinstance(twist_cmd, UniformVelocityCommand):
+      kb_controller = KeyboardVelocityController(twist_cmd, device=env.device)
+      print(
+        "[INFO] Keyboard velocity control available (T=toggle, "
+        "WASD=move, QE=strafe, X=stop)"
+      )
+
   if resolved_viewer == "native":
-    NativeMujocoViewer(env, policy).run()
+    viewer = NativeMujocoViewer(
+      env, policy, key_callback=kb_controller.on_key if kb_controller else None
+    )
+    if kb_controller:
+      _orig_step = viewer.step_simulation
+
+      def _step_with_keyboard():
+        _orig_step()
+        kb_controller.post_step()
+
+      viewer.step_simulation = _step_with_keyboard
+    viewer.run()
   elif resolved_viewer == "viser":
     ViserPlayViewer(env, policy).run()
   else:

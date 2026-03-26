@@ -454,8 +454,11 @@ class ManagerBasedRlEnv:
 
   def step(self, action: torch.Tensor) -> types.VecEnvStepReturn:
     action = action.to(self.device)
-    # get the motion command configuration
-    motion_cfg = self.command_manager.get_term_cfg("motion")
+    # get the motion command configuration (optional — not all envs have a motion command)
+    try:
+      motion_cfg = self.command_manager.get_term_cfg("motion")
+    except KeyError:
+      motion_cfg = None
     if self.cfg.use_delta_action and isinstance(self.command_manager, CommandManager):
       try:
         # command_current_joint_pos = self.command_manager.get_command_joint_pos_current("motion")  # 到 compute_obs 的时候 current joint_pos command 是下一帧了

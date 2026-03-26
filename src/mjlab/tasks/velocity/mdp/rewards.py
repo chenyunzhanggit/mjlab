@@ -288,6 +288,129 @@ def soft_landing(
   return cost
 
 
+def track_base_height(
+  env: ManagerBasedRlEnv,
+  std: float,
+  command_name: str = "base_height",
+  body_name: str = "pelvis",
+) -> torch.Tensor:
+  """Reward tracking the target torso height from :class:`RandomBaseHeightCommand`.
+
+  Shape: ``(num_envs,)``
+  """
+  from mjlab.tasks.velocity.mdp.hand_pose_command import RandomBaseHeightCommand
+
+  cmd = env.command_manager.get_term(command_name)
+  assert isinstance(cmd, RandomBaseHeightCommand)
+  target_height = cmd.target_height[:, 0]  # (N,)
+
+  robot: Entity = env.scene["robot"]
+  anchor_idx = robot.body_names.index(body_name)
+  actual_height = robot.data.body_link_pos_w[:, anchor_idx, 2]  # (N,)
+
+  error = torch.square(actual_height - target_height)
+  return torch.exp(-error / std**2)
+
+
+def track_ee_pos(
+  env: ManagerBasedRlEnv,
+  std: float,
+  command_name: str = "hand_pose",
+  anchor_body_name: str = "torso_link",
+  hand_body_names: tuple[str, ...] = (
+    "left_wrist_yaw_link",
+    "right_wrist_yaw_link",
+  ),
+) -> torch.Tensor:
+  """Reward tracking the target hand positions (in torso frame) from :class:`RandomHandPoseCommand`.
+
+  Computes actual hand positions in the torso frame via forward kinematics and
+  compares them to the randomly sampled targets. Shape: ``(num_envs,)``
+  """
+  from mjlab.tasks.velocity.mdp.hand_pose_command import RandomHandPoseCommand
+  from mjlab.utils.lab_api.math import subtract_frame_transforms
+
+  cmd = env.command_manager.get_term(command_name)
+  assert isinstance(cmd, RandomHandPoseCommand)
+  target = cmd.target_hand_pos_b  # (N, 6)
+
+  robot: Entity = env.scene["robot"]
+  num_hands = len(hand_body_names)
+  hand_indexes = torch.tensor(
+    robot.find_bodies(hand_body_names, preserve_order=True)[0],
+    dtype=torch.long,
+    device=env.device,
+  )
+  anchor_idx = robot.body_names.index(anchor_body_name)
+
+  hand_pos_w = robot.data.body_link_pos_w[:, hand_indexes]  # (N, 2, 3)
+  hand_quat_w = robot.data.body_link_quat_w[:, hand_indexes]  # (N, 2, 4)
+  anchor_pos_w = robot.data.body_link_pos_w[:, anchor_idx, :][:, None, :].expand(
+    -1, num_hands, -1
+  )
+  anchor_quat_w = robot.data.body_link_quat_w[:, anchor_idx, :][:, None, :].expand(
+    -1, num_hands, -1
+  )
+
+  actual_b, _ = subtract_frame_transforms(
+    anchor_pos_w, anchor_quat_w, hand_pos_w, hand_quat_w
+  )
+  actual_flat = actual_b.reshape(env.num_envs, -1)  # (N, 6)
+
+  error = torch.sum(torch.square(actual_flat - target), dim=1)  # (N,)
+  return torch.exp(-error / std**2)
+
+
+def track_ee_ori(
+  env: ManagerBasedRlEnv,
+  std: float,
+  command_name: str = "hand_pose",
+  anchor_body_name: str = "torso_link",
+  hand_body_names: tuple[str, ...] = (
+    "left_wrist_yaw_link",
+    "right_wrist_yaw_link",
+  ),
+) -> torch.Tensor:
+  """Reward tracking the target hand orientations from :class:`RandomHandPoseCommand`.
+
+  Compares actual hand orientations (rot-mat first two cols in torso frame) to
+  randomly sampled targets.  Shape: ``(num_envs,)``
+  """
+  from mjlab.tasks.velocity.mdp.hand_pose_command import RandomHandPoseCommand
+  from mjlab.utils.lab_api.math import matrix_from_quat, subtract_frame_transforms
+
+  cmd = env.command_manager.get_term(command_name)
+  assert isinstance(cmd, RandomHandPoseCommand)
+  target = cmd.target_hand_ori_b  # (N, 12)
+
+  robot: Entity = env.scene["robot"]
+  num_hands = len(hand_body_names)
+  hand_indexes = torch.tensor(
+    robot.find_bodies(hand_body_names, preserve_order=True)[0],
+    dtype=torch.long,
+    device=env.device,
+  )
+  anchor_idx = robot.body_names.index(anchor_body_name)
+
+  hand_pos_w = robot.data.body_link_pos_w[:, hand_indexes]  # (N, 2, 3)
+  hand_quat_w = robot.data.body_link_quat_w[:, hand_indexes]  # (N, 2, 4)
+  anchor_pos_w = robot.data.body_link_pos_w[:, anchor_idx, :][:, None, :].expand(
+    -1, num_hands, -1
+  )
+  anchor_quat_w = robot.data.body_link_quat_w[:, anchor_idx, :][:, None, :].expand(
+    -1, num_hands, -1
+  )
+
+  _, ori_b = subtract_frame_transforms(
+    anchor_pos_w, anchor_quat_w, hand_pos_w, hand_quat_w
+  )
+  mat = matrix_from_quat(ori_b)  # (N, 2, 3, 3)
+  actual = mat[..., :2].reshape(env.num_envs, -1)  # (N, 12)
+
+  error = torch.sum(torch.square(actual - target), dim=1)  # (N,)
+  return torch.exp(-error / std**2)
+
+
 class variable_posture:
   """Penalize deviation from default pose with speed-dependent tolerance.
 

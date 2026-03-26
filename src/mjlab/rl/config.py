@@ -103,6 +103,10 @@ class RslRlBaseRunnerCfg:
   """
   clip_actions: float | None = None
   """The clipping range for action values. If None (default), no clipping is applied."""
+  from_distillation: bool = False
+  """When True, ``load()`` resets the actor obs normalizer and action noise std.
+  Enable this only when loading a distillation checkpoint for post-training;
+  leave False for normal play/resume."""
 
 
 @dataclass

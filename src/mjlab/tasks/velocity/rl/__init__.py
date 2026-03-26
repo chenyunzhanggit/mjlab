@@ -5,5 +5,8 @@ from mjlab.tasks.velocity.rl.exporter import (
   export_velocity_policy_as_onnx as export_velocity_policy_as_onnx,
 )
 from mjlab.tasks.velocity.rl.runner import (
+  LocoManiOnPolicyRunner as LocoManiOnPolicyRunner,
+)
+from mjlab.tasks.velocity.rl.runner import (
   VelocityOnPolicyRunner as VelocityOnPolicyRunner,
 )
