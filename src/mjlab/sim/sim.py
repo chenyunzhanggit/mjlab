@@ -47,7 +47,7 @@ class MujocoCfg:
   """Configuration for MuJoCo simulation parameters."""
 
   # Integrator settings.
-  timestep: float = 0.002
+  timestep: float = 0.005
   integrator: Literal["euler", "implicitfast"] = "implicitfast"
 
   # Friction settings.

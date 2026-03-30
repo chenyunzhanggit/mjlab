@@ -240,13 +240,13 @@ def make_lift_cube_env_cfg() -> ManagerBasedRlEnvCfg:
       nconmax=55,
       njmax=600,
       mujoco=MujocoCfg(
-        timestep=0.002,
+        timestep=0.005,
         iterations=10,
         ls_iterations=20,
         impratio=10,
         cone="elliptic",
       ),
     ),
-    decimation=10,
+    decimation=4,
     episode_length_s=20.0,
   )
