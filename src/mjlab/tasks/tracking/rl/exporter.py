@@ -64,7 +64,7 @@ class _OnnxMotionPolicyExporter(_OnnxPolicyExporter):
       (obs, time_step),
       os.path.join(path, filename),
       export_params=True,
-      opset_version=11,
+      opset_version=14,
       verbose=self.verbose,
       input_names=["obs", "time_step"],
       output_names=[

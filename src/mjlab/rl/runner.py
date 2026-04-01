@@ -47,6 +47,14 @@ class MjlabOnPolicyRunner(OnPolicyRunner):
   env: RslRlVecEnvWrapper
 
   def _construct_algorithm(self, obs):
+    # Inject custom model classes into the caller's namespace so that
+    # rsl_rl's ``eval(class_name)`` can resolve them.
+    import rsl_rl.runners.on_policy_runner as _runner_mod
+
+    from mjlab.rl.transformer_actor_critic import TransformerActorCritic
+
+    _runner_mod.TransformerActorCritic = TransformerActorCritic  # type: ignore[attr-defined]
+
     alg = super()._construct_algorithm(obs)
     # Replace compute_returns with the global-normalisation version so that
     # advantage statistics are synchronised across GPUs before normalising.

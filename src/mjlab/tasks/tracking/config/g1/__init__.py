@@ -12,26 +12,25 @@ from .env_cfgs import (
   unitree_g1_student_env_cfg as unitree_g1_student_env_cfg,
 )
 from .env_cfgs import (
+  unitree_g1_teacher_env_cfg as unitree_g1_teacher_env_cfg,
+)
+from .env_cfgs import (
   unitree_g1_teleoperation_amp_env_cfg as unitree_g1_teleoperation_amp_env_cfg,
 )
 from .env_cfgs import (
   unitree_g1_teleoperation_env_cfg as unitree_g1_teleoperation_env_cfg,
 )
-from .env_cfgs import (
-  unitree_g1_teacher_env_cfg as unitree_g1_teacher_env_cfg,
-)
-
 from .rl_cfg import (
   unitree_g1_student_distill_runner_cfg as unitree_g1_student_distill_runner_cfg,
+)
+from .rl_cfg import (
+  unitree_g1_teacher_ppo_runner_cfg as unitree_g1_teacher_ppo_runner_cfg,
 )
 from .rl_cfg import (
   unitree_g1_teleoperation_amp_runner_cfg as unitree_g1_teleoperation_amp_runner_cfg,
 )
 from .rl_cfg import (
   unitree_g1_teleoperation_ppo_runner_cfg as unitree_g1_teleoperation_ppo_runner_cfg,
-)
-from .rl_cfg import (
-  unitree_g1_teacher_ppo_runner_cfg as unitree_g1_teacher_ppo_runner_cfg,
 )
 from .rl_cfg import (
   unitree_g1_tracking_ppo_runner_cfg as unitree_g1_tracking_ppo_runner_cfg,

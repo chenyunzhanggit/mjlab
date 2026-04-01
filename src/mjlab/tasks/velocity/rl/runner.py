@@ -43,10 +43,38 @@ class VelocityOnPolicyRunner(MjlabOnPolicyRunner):
 class LocoManiOnPolicyRunner(VelocityOnPolicyRunner):
   """Runner for loco-mani post-training from a distilled checkpoint.
 
-  Overrides ``load()`` to reset the actor obs normalizer and action noise std,
-  which are invalid when loading a distillation checkpoint (trained with MSE
-  loss on a different obs distribution).
+  When ``from_distillation=True``:
+  - ``load()`` resets the actor obs normalizer and action noise std.
+  - ``learn()`` runs a critic-only warm-up phase (``critic_warmup_iters``
+    iterations with the actor frozen) before resuming full PPO.
   """
+
+  def learn(
+    self, num_learning_iterations: int, init_at_random_ep_len: bool = False
+  ) -> None:
+    from_distillation = self.cfg.get("from_distillation", False)
+    warmup_iters = int(self.cfg.get("critic_warmup_iters", 0))
+
+    if not from_distillation or warmup_iters <= 0:
+      super().learn(num_learning_iterations, init_at_random_ep_len)
+      return
+
+    warmup_iters = min(warmup_iters, num_learning_iterations)
+    print(
+      f"[LocoManiRunner] Critic warm-up: actor frozen for {warmup_iters} iterations"
+    )
+    for param in self.alg.policy.actor.parameters():
+      param.requires_grad_(False)
+
+    super().learn(warmup_iters, init_at_random_ep_len)
+
+    for param in self.alg.policy.actor.parameters():
+      param.requires_grad_(True)
+    print("[LocoManiRunner] Critic warm-up done — actor unfrozen")
+
+    remaining = num_learning_iterations - warmup_iters
+    if remaining > 0:
+      super().learn(remaining, init_at_random_ep_len=False)
 
   def load(
     self, path: str, load_optimizer: bool = True, map_location: str | None = None

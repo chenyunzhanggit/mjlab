@@ -101,6 +101,7 @@ def generated_commands_joint_pos(
   assert command is not None
   return command
 
+
 def generated_commands_joint_vel(
   env: ManagerBasedRlEnv, command_name: str
 ) -> torch.Tensor:

@@ -11,9 +11,9 @@ from mjlab.sensor import ContactMatch, ContactSensorCfg
 from mjlab.tasks.tracking import mdp
 from mjlab.tasks.tracking.mdp import MotionCommandCfg, MultiMotionCommandCfg
 from mjlab.tasks.tracking.tracking_env_cfg import (
+  make_teacher_env_cfg,
   make_teleoperation_env_cfg,
   make_tracking_env_cfg,
-  make_teacher_env_cfg,
 )
 from mjlab.tasks.velocity.mdp.observations import robot_base_height
 
@@ -243,7 +243,6 @@ def unitree_g1_teleoperation_env_cfg(
   return cfg
 
 
-
 def unitree_g1_teacher_env_cfg(
   has_state_estimation: bool = True,
   play: bool = False,
@@ -332,11 +331,10 @@ def unitree_g1_teacher_env_cfg(
   return cfg
 
 
-
 def unitree_g1_student_env_cfg(play: bool = False):
   """Create the student distillation environment configuration.
 
-  Extends ``unitree_g1_teleoperation_env_cfg`` with an additional
+  Extends ``unitree_g1_teacher_env_cfg`` with an additional
   ``'student'`` observation group.  The existing ``'policy'`` (teacher)
   and ``'critic'`` groups are preserved so the distillation runner can
   forward the frozen teacher through the ``'policy'`` group at every step.
@@ -345,7 +343,7 @@ def unitree_g1_student_env_cfg(play: bool = False):
   from mjlab.tasks.tracking.mdp import student_observations as student_obs
   from mjlab.utils.noise import UniformNoiseCfg as Unoise
 
-  cfg = unitree_g1_teleoperation_env_cfg(has_state_estimation=False, play=play)
+  cfg = unitree_g1_teacher_env_cfg(has_state_estimation=False, play=play)
 
   student_terms = {
     # # Current-step reference anchor linear velocity: 3D

@@ -2,6 +2,8 @@ import rsl_rl.modules as _rsl_modules
 import torch
 from rsl_rl.modules.actor_critic import ActorCritic
 
+from mjlab.rl.transformer_actor_critic import TransformerActorCritic
+
 
 class MjlabActorCritic(ActorCritic):
   def _update_distribution(self, obs):
@@ -36,3 +38,6 @@ class MjlabActorCritic(ActorCritic):
 
 
 _rsl_modules.MjlabActorCritic = MjlabActorCritic  # type: ignore[attr-defined]
+
+
+_rsl_modules.TransformerActorCritic = TransformerActorCritic  # type: ignore[attr-defined]

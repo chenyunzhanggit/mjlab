@@ -29,8 +29,8 @@ class MotionTrackingDistillationRunner(MotionTrackingOnPolicyRunner):
   """Pure knowledge-distillation runner for student policy training.
 
   The frozen teacher is loaded from ``train_cfg['teacher_checkpoint']``
-  and is expected to have been trained with the standard
-  ``'Mjlab-Tracking-Teleoperation-Unitree-G1'`` task (i.e. its actor
+  and is expected to have been trained with the
+  ``'Mjlab-Tracking-Teacher-Unitree-G1'`` task (i.e. its actor
   reads the ``'policy'`` observation group which contains privileged
   future reference-motion frames).
 

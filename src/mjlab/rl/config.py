@@ -23,7 +23,23 @@ class RslRlPpoActorCriticCfg:
   activation: str = "elu"
   """The activation function to use in the actor and critic networks."""
   class_name: str = "ActorCritic"
-  """Ignore, required by RSL-RL."""
+  """Model class name. Use ``"TransformerActorCritic"`` for a Transformer-based actor."""
+
+  # Transformer backbone (only used when class_name="TransformerActorCritic")
+  d_model: int = 512
+  """Transformer embedding dimension."""
+  d_ff: int = 1024
+  """Transformer feed-forward dimension."""
+  num_tokens: int = 2
+  """Number of input tokens the obs is split into."""
+  nhead: int = 4
+  """Number of attention heads."""
+  num_transformer_layers: int = 3
+  """Number of Transformer encoder layers."""
+  transformer_activation: str = "gelu"
+  """Activation in Transformer FFN."""
+  actor_head_hidden_dims: Tuple[int, ...] = (256,)
+  """MLP head dims after Transformer pooling."""
 
 
 @dataclass
@@ -107,6 +123,11 @@ class RslRlBaseRunnerCfg:
   """When True, ``load()`` resets the actor obs normalizer and action noise std.
   Enable this only when loading a distillation checkpoint for post-training;
   leave False for normal play/resume."""
+  critic_warmup_iters: int = 0
+  """Number of iterations at the start of fine-tuning where the actor is frozen
+  and only the critic is updated.  Only active when ``from_distillation=True``.
+  Helps the critic bootstrap a good value estimate before the actor starts
+  moving.  Default is 0 (disabled)."""
 
 
 @dataclass

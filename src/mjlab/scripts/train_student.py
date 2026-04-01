@@ -6,7 +6,7 @@ mjpython src/mjlab/scripts/train_student.py \\
     Mjlab-Tracking-Student-Unitree-G1 \\
     --env.commands.motion.motion-path /path/to/motions \\
     --env.scene.num-envs 4096 \\
-    --agent.teacher-checkpoint /path/to/logs/rsl_rl/g1_teleoperation/run/model_50000.pt \\
+    --agent.teacher-checkpoint /path/to/logs/rsl_rl/g1_teacher/run/model_50000.pt \\
     --agent.max-iterations 50000 \\
     --agent.distill-coef 1.0 \\
     --agent.distill-coef-decay 0.9999

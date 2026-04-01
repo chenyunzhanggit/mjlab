@@ -646,8 +646,6 @@ def make_teleoperation_env_cfg() -> ManagerBasedRlEnvCfg:
   )
 
 
-
-
 def make_teacher_env_cfg() -> ManagerBasedRlEnvCfg:
   """Create base teleoperation task configuration."""
 
@@ -702,16 +700,17 @@ def make_teacher_env_cfg() -> ManagerBasedRlEnvCfg:
       params={"command_name": "motion"},
       noise=Unoise(n_min=-1.0, n_max=1.0),
     ),
-
     "motion_anchor_pos_b": ObservationTermCfg(
-      func=mdp.motion_anchor_pos_b, params={"command_name": "motion"},
+      func=mdp.motion_anchor_pos_b,
+      params={"command_name": "motion"},
       noise=Unoise(
         n_min=(-0.1, -0.1, -0.05),
         n_max=(0.1, 0.1, 0.05),
       ),
     ),
     "motion_anchor_vel_w": ObservationTermCfg(
-      func=mdp.motion_anchor_vel_w, params={"command_name": "motion"},
+      func=mdp.motion_anchor_vel_w,
+      params={"command_name": "motion"},
       noise=Unoise(
         n_min=(-0.5, -0.5, -0.2) * num_ref_motion_time_steps,
         n_max=(0.5, 0.5, 0.2) * num_ref_motion_time_steps,
@@ -736,26 +735,31 @@ def make_teacher_env_cfg() -> ManagerBasedRlEnvCfg:
     "body_ori": ObservationTermCfg(
       func=mdp.robot_body_ori_b, params={"command_name": "motion"}
     ),
-
-
-
     "base_lin_vel": ObservationTermCfg(
-      func=mdp.builtin_sensor, params={"sensor_name": "robot/imu_lin_vel"},
+      func=mdp.builtin_sensor,
+      params={"sensor_name": "robot/imu_lin_vel"},
       noise=Unoise(n_min=-0.1, n_max=0.1),
     ),
     "base_ang_vel": ObservationTermCfg(
-      func=mdp.builtin_sensor, params={"sensor_name": "robot/imu_ang_vel"},
+      func=mdp.builtin_sensor,
+      params={"sensor_name": "robot/imu_ang_vel"},
       noise=Unoise(n_min=-0.2, n_max=0.2),
     ),
     "projected_gravity": ObservationTermCfg(
       func=mdp.projected_gravity,
       noise=Unoise(n_min=-0.1, n_max=0.1),
     ),
-    "joint_pos": ObservationTermCfg(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01),params={"biased": True},),
-    "joint_vel": ObservationTermCfg(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5),),
+    "joint_pos": ObservationTermCfg(
+      func=mdp.joint_pos_rel,
+      noise=Unoise(n_min=-0.01, n_max=0.01),
+      params={"biased": True},
+    ),
+    "joint_vel": ObservationTermCfg(
+      func=mdp.joint_vel_rel,
+      noise=Unoise(n_min=-1.5, n_max=1.5),
+    ),
     "actions": ObservationTermCfg(func=mdp.last_action),
     # ref anchor ang vel
-    
   }
 
   critic_terms = {
@@ -777,8 +781,6 @@ def make_teacher_env_cfg() -> ManagerBasedRlEnvCfg:
     "body_ori": ObservationTermCfg(
       func=mdp.robot_body_ori_b, params={"command_name": "motion"}
     ),
-
-
     "base_lin_vel": ObservationTermCfg(
       func=mdp.builtin_sensor, params={"sensor_name": "robot/imu_lin_vel"}
     ),

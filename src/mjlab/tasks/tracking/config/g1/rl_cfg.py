@@ -102,7 +102,7 @@ def unitree_g1_teacher_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
       desired_kl=0.01,
       max_grad_norm=1.0,
     ),
-    experiment_name="g1_teleoperation",
+    experiment_name="g1_teacher",
     save_interval=500,
     num_steps_per_env=24,
     max_iterations=100_000,
@@ -226,7 +226,7 @@ class DistillationPpoRunnerCfg(RslRlOnPolicyRunnerCfg):
   """Absolute path to the teacher model checkpoint (``.pt`` file).
     Must be set before training starts."""
 
-  teacher_actor_hidden_dims: tuple[int, ...] = (2048, 2048, 1024, 1024, 512, 512)
+  teacher_actor_hidden_dims: tuple[int, ...] = (2048, 1024, 1024, 512, 512)
   """Hidden-layer sizes of the *teacher* actor MLP.
     Must match the architecture used when training the teacher."""
 
@@ -281,7 +281,7 @@ def unitree_g1_student_distill_runner_cfg() -> DistillationPpoRunnerCfg:
     num_steps_per_env=24,
     max_iterations=50_000,
     teacher_checkpoint="",
-    teacher_actor_hidden_dims=(2048, 2048, 1024, 1024, 512, 512),
+    teacher_actor_hidden_dims=(2048, 1024, 1024, 512, 512),
     distill_coef=1.0,
     distill_coef_decay=0.9999,
     distill_epochs=2,
