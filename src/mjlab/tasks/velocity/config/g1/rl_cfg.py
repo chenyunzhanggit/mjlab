@@ -14,7 +14,7 @@ def unitree_g1_post_train_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     # critic reads the "critic" obs group (107D).
     obs_groups={"policy": ("student",), "critic": ("critic",)},
     policy=RslRlPpoActorCriticCfg(
-      init_noise_std=0.15,
+      init_noise_std=0.5,
       actor_obs_normalization=True,
       critic_obs_normalization=True,
       actor_hidden_dims=(1024, 1024, 512, 512),

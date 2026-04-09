@@ -126,8 +126,11 @@ class MotionTrackingDistillationRunner(MotionTrackingOnPolicyRunner):
       start = time.time()
 
       # ── Rollout: collect (student_obs, teacher_action) pairs ──────────
-      with torch.inference_mode():
-        for step in range(self.num_steps_per_env):
+      # NOTE: actor_obs_normalizer must be called OUTSIDE inference_mode so
+      # its running stats (count/mean/var) are updated during rollout.
+      # Only the teacher forward and env.step are wrapped in no_grad.
+      for step in range(self.num_steps_per_env):
+        with torch.no_grad():
           # Student forward（纯推理，不走 PPO buffer）
           s_obs = obs["student"]
           s_obs_norm = (

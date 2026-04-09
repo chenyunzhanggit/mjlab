@@ -474,4 +474,104 @@ def unitree_g1_student_env_cfg(play: bool = False):
     enable_corruption=False,
   )
 
+  # ── Rewards (explicit copy from make_teacher_env_cfg for easy tuning) ────
+  from mjlab.managers.reward_manager import RewardTermCfg
+  from mjlab.managers.scene_entity_config import SceneEntityCfg
+
+  cfg.rewards = {
+    # ── Root stability ────────────────────────────────────────────────────
+    "motion_global_root_pos": RewardTermCfg(
+      func=mdp.motion_global_anchor_position_error_exp,
+      weight=1.5,
+      params={"command_name": "motion", "std": 0.3},
+    ),
+    "motion_global_root_ori": RewardTermCfg(
+      func=mdp.motion_global_anchor_orientation_error_exp_fall_recovery,
+      weight=1.2,
+      params={"command_name": "motion", "std": 0.4},
+    ),
+    # "anchor_height": RewardTermCfg(
+    #   func=mdp.motion_global_anchor_height_error_exp_fall_recovery,
+    #   weight=2.0,
+    #   params={"command_name": "motion", "std": 0.3},
+    # ),
+    "base_height": RewardTermCfg(
+      func=mdp.motion_global_anchor_height_error_exp,
+      weight=0.75,
+      params={"command_name": "motion", "std": 0.1},
+    ),
+    # ── Full-body tracking (auxiliary, low weight) ────────────────────────
+    "motion_body_pos": RewardTermCfg(
+      func=mdp.motion_relative_body_position_error_exp_fall_recovery,
+      weight=0.3,
+      params={"command_name": "motion", "std": 0.3},
+    ),
+    "motion_body_ori": RewardTermCfg(
+      func=mdp.motion_relative_body_orientation_error_exp_fall_recovery,
+      weight=0.3,
+      params={"command_name": "motion", "std": 0.4},
+    ),
+    "motion_body_lin_vel": RewardTermCfg(
+      func=mdp.motion_global_body_linear_velocity_error_exp_fall_recovery,
+      weight=0.3,
+      params={"command_name": "motion", "std": 1.0},
+    ),
+    "motion_body_ang_vel": RewardTermCfg(
+      func=mdp.motion_global_body_angular_velocity_error_exp_fall_recovery,
+      weight=0.3,
+      params={"command_name": "motion", "std": 3.14},
+    ),
+    # ── Pelvis velocity (primary focus) ───────────────────────────────────
+    "pelvis_lin_vel": RewardTermCfg(
+      func=mdp.motion_global_body_linear_velocity_error_exp_fall_recovery,
+      weight=2.0,
+      params={"command_name": "motion", "std": 0.5, "body_names": ("pelvis",)},
+    ),
+    "pelvis_ang_vel": RewardTermCfg(
+      func=mdp.motion_global_body_angular_velocity_error_exp_fall_recovery,
+      weight=1.25,
+      params={"command_name": "motion", "std": 0.5, "body_names": ("pelvis",)},
+    ),
+    # ── Wrist tracking (primary focus) ───────────────────────────────────
+    # "wrist_pos": RewardTermCfg(
+    #   func=mdp.motion_relative_body_position_error_exp_fall_recovery,
+    #   weight=2.0,
+    #   params={
+    #     "command_name": "motion",
+    #     "std": 0.15,
+    #     "body_names": ("left_wrist_yaw_link", "right_wrist_yaw_link"),
+    #   },
+    # ),
+    "global_wrist_pos": RewardTermCfg(
+      func=mdp.motion_global_body_position_error_exp,
+      weight=2.0,
+      params={
+        "command_name": "motion",
+        "std": 0.3,
+        "body_names": ("left_wrist_yaw_link", "right_wrist_yaw_link"),
+      },
+    ),
+    "wrist_ori": RewardTermCfg(
+      func=mdp.motion_relative_body_orientation_error_exp,
+      weight=1.2,
+      params={
+        "command_name": "motion",
+        "std": 0.3,
+        "body_names": ("left_wrist_yaw_link", "right_wrist_yaw_link"),
+      },
+    ),
+    # ── Regularisation ────────────────────────────────────────────────────
+    "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-1.0e-1),
+    "joint_limit": RewardTermCfg(
+      func=mdp.joint_pos_limits,
+      weight=-10.0,
+      params={"asset_cfg": SceneEntityCfg("robot", joint_names=(".*",))},
+    ),
+    "self_collisions": RewardTermCfg(
+      func=mdp.self_collision_cost,
+      weight=-10.0,
+      params={"sensor_name": "self_collision"},
+    ),
+  }
+
   return cfg

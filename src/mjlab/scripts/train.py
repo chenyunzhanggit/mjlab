@@ -66,12 +66,23 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
 
   registry_name: str | None = None
 
+  # Check if this is a multi-motion tracking task (student / fine-tune).
+  from mjlab.tasks.tracking.mdp.multi_commands import MultiMotionCommandCfg
+
+  is_multi_motion_task = "motion" in cfg.env.commands and isinstance(
+    cfg.env.commands["motion"], MultiMotionCommandCfg
+  )
+  if is_multi_motion_task:
+    from mjlab.scripts.train_student import _prepare_motion_for_student
+
+    _prepare_motion_for_student(cfg)  # type: ignore[arg-type]
+
   # Check if this is a tracking task by checking for motion command.
   is_tracking_task = "motion" in cfg.env.commands and isinstance(
     cfg.env.commands["motion"], MotionCommandCfg
   )
 
-  if is_tracking_task:
+  if is_tracking_task and not is_multi_motion_task:
     motion_cmd = cfg.env.commands["motion"]
     assert isinstance(motion_cmd, MotionCommandCfg)
 

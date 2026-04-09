@@ -213,6 +213,23 @@ def motion_relative_body_orientation_error_exp_fall_recovery(
   return torch.exp(-error.mean(-1) / std**2) * ~fall_recovery_protected
 
 
+def motion_global_body_position_error_exp(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  std: float,
+  body_names: tuple[str, ...] | None = None,
+) -> torch.Tensor:
+  command = cast(MotionCommand, env.command_manager.get_term(command_name))
+  body_indexes = _get_body_indexes(command, body_names)
+  error = torch.sum(
+    torch.square(
+      command.body_pos_w[:, body_indexes] - command.robot_body_pos_w[:, body_indexes]
+    ),
+    dim=-1,
+  )
+  return torch.exp(-error.mean(-1) / std**2)
+
+
 def motion_global_body_linear_velocity_error_exp_fall_recovery(
   env: ManagerBasedRlEnv,
   command_name: str,
@@ -274,3 +291,17 @@ def self_collision_cost(env: ManagerBasedRlEnv, sensor_name: str) -> torch.Tenso
   sensor: ContactSensor = env.scene[sensor_name]
   assert sensor.data.found is not None
   return sensor.data.found.squeeze(-1)
+
+
+def motion_global_anchor_height_error_exp(
+  env: ManagerBasedRlEnv, command_name: str, std: float
+) -> torch.Tensor:
+  command = cast(MotionCommand, env.command_manager.get_term(command_name))
+
+  actual_height = command.robot_anchor_pos_w[:, 2]
+  target_height = command.anchor_pos_w[:, 2]
+  height_error = torch.square(target_height - actual_height)
+
+  reward = torch.exp(-height_error / std**2)
+
+  return reward

@@ -246,6 +246,62 @@ class DistillationPpoRunnerCfg(RslRlOnPolicyRunnerCfg):
   """Number of mini-batches per distillation epoch."""
 
 
+@dataclass
+class StudentFineTunePpoRunnerCfg(RslRlOnPolicyRunnerCfg):
+  """Runner config for Phase-3 student PPO fine-tuning on the tracking task.
+
+  Actor is loaded from a distillation checkpoint; critic is bootstrapped from
+  the teacher checkpoint.  Set ``from_distillation=True`` and provide both
+  ``resume=True`` (for the student actor) and ``teacher_checkpoint`` (for the
+  critic) when launching training.
+  """
+
+  teacher_checkpoint: str = ""
+  """Absolute path to the teacher .pt checkpoint used to initialise the critic."""
+
+
+def unitree_g1_student_finetune_runner_cfg() -> StudentFineTunePpoRunnerCfg:
+  """RL runner config for Phase-3 student PPO fine-tuning."""
+  return StudentFineTunePpoRunnerCfg(
+    policy=RslRlPpoActorCriticCfg(
+      init_noise_std=0.1,
+      # Distillation ran under inference_mode so actor_obs_normalizer was never
+      # updated (count stays 0).  The actor learned with raw unnormalised obs.
+      # Enabling normalisation here would shift the input distribution and
+      # degrade the loaded policy.  Keep it off to match distillation behaviour.
+      actor_obs_normalization=False,
+      critic_obs_normalization=True,
+      # Actor matches distilled student architecture.
+      actor_hidden_dims=(1024, 1024, 512, 512),
+      # Critic reads the 119-dim student critic obs group (not teacher's 841-dim).
+      critic_hidden_dims=(512, 256, 128),
+      activation="elu",
+    ),
+    algorithm=RslRlPpoAlgorithmCfg(
+      value_loss_coef=1.0,
+      use_clipped_value_loss=True,
+      clip_param=0.2,
+      entropy_coef=0.005,
+      num_learning_epochs=5,
+      num_mini_batches=4,
+      learning_rate=1e-5,
+      schedule="adaptive",
+      gamma=0.99,
+      lam=0.95,
+      desired_kl=0.01,
+      max_grad_norm=0.5,
+    ),
+    obs_groups={"policy": ("student",), "critic": ("critic",)},
+    experiment_name="g1_student_finetune",
+    save_interval=500,
+    num_steps_per_env=24,
+    max_iterations=50_000,
+    from_distillation=True,
+    critic_warmup_iters=0,
+    teacher_checkpoint="",
+  )
+
+
 def unitree_g1_student_distill_runner_cfg() -> DistillationPpoRunnerCfg:
   """Create RL runner configuration for Unitree G1 student distillation."""
   return DistillationPpoRunnerCfg(

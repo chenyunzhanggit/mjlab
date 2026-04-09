@@ -27,6 +27,8 @@ class PlayConfig:
   wandb_run_path: str | None = None
   checkpoint_file: str | None = None
   motion_file: str | None = None
+  motion_path: str | None = None
+  """Directory of .npz motion files for multi-motion tasks (student/fine-tune)."""
   num_envs: int | None = None
   device: str | None = None
   video: bool = False
@@ -37,6 +39,8 @@ class PlayConfig:
   viewer: Literal["auto", "native", "viser"] = "auto"
   no_terminations: bool = False
   """Disable all termination conditions (useful for viewing motions with dummy agents)."""
+  export_onnx: bool = False
+  """Export the loaded checkpoint as ONNX and exit (no viewer launched)."""
 
   # Internal flag used by demo script.
   _demo_mode: tyro.conf.Suppress[bool] = False
@@ -58,9 +62,35 @@ def run_play(task_id: str, cfg: PlayConfig):
     env_cfg.terminations = {}
     print("[INFO]: Terminations disabled")
 
+  # Handle multi-motion tasks (student / fine-tune) that use MultiMotionCommandCfg.
+  from mjlab.tasks.tracking.mdp.multi_commands import MultiMotionCommandCfg
+
+  is_multi_motion_task = "motion" in env_cfg.commands and isinstance(
+    env_cfg.commands["motion"], MultiMotionCommandCfg
+  )
+  if is_multi_motion_task:
+    from mjlab.scripts.train_multi import get_data10K_motion_files
+
+    multi_cmd = env_cfg.commands["motion"]
+    assert isinstance(multi_cmd, MultiMotionCommandCfg)
+    motion_path = cfg.motion_path or multi_cmd.motion_path or ""
+    if motion_path and Path(motion_path).exists():
+      multi_cmd.motion_files = get_data10K_motion_files(motion_path)
+      print(
+        f"[INFO]: Loaded {len(multi_cmd.motion_files)} motion files from {motion_path}"
+      )
+    elif not multi_cmd.motion_files:
+      raise ValueError(
+        "Multi-motion task requires either:\n"
+        "  --motion-path /path/to/motion/dir\n"
+        "  --env.commands.motion.motion-files file1.npz file2.npz ..."
+      )
+
   # Check if this is a tracking task by checking for motion command.
-  is_tracking_task = "motion" in env_cfg.commands and isinstance(
-    env_cfg.commands["motion"], MotionCommandCfg
+  is_tracking_task = (
+    "motion" in env_cfg.commands
+    and isinstance(env_cfg.commands["motion"], MotionCommandCfg)
+    and not is_multi_motion_task
   )
 
   if is_tracking_task and cfg._demo_mode:
@@ -190,6 +220,12 @@ def run_play(task_id: str, cfg: PlayConfig):
     runner = runner_cls(env, asdict(agent_cfg), device=device)
     runner.load(str(resume_path), map_location=device)
     policy = runner.get_inference_policy(device=device)
+
+    if cfg.export_onnx:
+      runner.save(str(resume_path))
+      print(f"[INFO]: ONNX exported alongside checkpoint: {resume_path.parent}")
+      env.close()
+      return
 
   # Handle "auto" viewer selection.
   if cfg.viewer == "auto":
