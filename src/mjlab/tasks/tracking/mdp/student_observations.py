@@ -100,6 +100,7 @@ def motion_ref_ang_vel_z(env: ManagerBasedRlEnv, command_name: str) -> torch.Ten
   return ang_vel_reshaped[:, current_idx, 2:3].contiguous()  # (num_envs, 1)
 
 
+
 def ref_anchor_height(env: ManagerBasedRlEnv, command_name: str) -> torch.Tensor:
   """Reference anchor (torso) height above the ground plane.
 
